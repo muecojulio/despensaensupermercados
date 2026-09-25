@@ -69,10 +69,26 @@ export const SUSTITUTOS = {
 };
 
 export const RECETAS = [
-  { id: "sopa", nombre: "Sopa de fideo", items: ["pasta", "jitomate", "pollo", "cebolla", "aceite"] },
-  { id: "huevos", nombre: "Huevos con tortilla", items: ["huevo", "tortillas", "jitomate", "cebolla"] },
-  { id: "frijoles", nombre: "Frijoles de la olla", items: ["frijol", "cebolla", "aceite"] },
-  { id: "ensalada", nombre: "Ensalada de pollo", items: ["pechuga", "aguacate", "jitomate", "limon", "cebolla"] },
+  {
+    id: "sopa",
+    nombre: "Sopa de fideo",
+    items: ["pasta", "jitomate", "pollo", "cebolla", "aceite"],
+  },
+  {
+    id: "huevos",
+    nombre: "Huevos con tortilla",
+    items: ["huevo", "tortillas", "jitomate", "cebolla"],
+  },
+  {
+    id: "frijoles",
+    nombre: "Frijoles de la olla",
+    items: ["frijol", "cebolla", "aceite"],
+  },
+  {
+    id: "ensalada",
+    nombre: "Ensalada de pollo",
+    items: ["pechuga", "aguacate", "jitomate", "limon", "cebolla"],
+  },
 ];
 
 export function avisoDiaCompra() {

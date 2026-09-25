@@ -1,3 +1,4 @@
+/** Marcas habituales en súpers de México. Se combinan con Open Food Facts. */
 export const MARCAS_POR_PRODUCTO = {
   leche_1l: ["Lala", "Alpura", "Santa Clara", "Sello Rojo", "Nutrileche", "Great Value", "Aurrerá"],
   huevo_12: ["San Juan", "Bachoco", "El Calvario", "Free Range", "Great Value"],

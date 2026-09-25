@@ -54,7 +54,12 @@ export default function MapaCercanos({ yo, lugares, puntos }) {
         L.marker([s.lat, s.lon])
           .addTo(map)
           .bindPopup(
-            "<b>" + s.nombre + "</b><br>" + s.km + " km" + (s.known ? "<br>Cadena conocida" : "")
+            "<b>" +
+              s.nombre +
+              "</b><br>" +
+              s.km +
+              " km" +
+              (s.known ? "<br>Cadena conocida" : "")
           );
       });
       if (pts.length > 1) map.fitBounds(pts, { padding: [28, 28], maxZoom: 15 });
