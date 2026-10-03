@@ -6,6 +6,7 @@ import { BASICOS, ZONAS } from "../data/zonas";
 import { NOMBRE_PASILLO, ORDEN_PASILLO, PESO_KG, RECETAS, SUSTITUTOS, avisoDiaCompra } from "../data/compras";
 import { agregarOSumarProducto, borrarLineaEnTexto, cambiarCantidadEnTexto, comparar, emparejar, parsearLista } from "../lib/despensa";
 import { leerCualquierArchivo } from "../lib/archivos";
+import { comprimirImagen } from "../lib/imagen";
 import { buscarSupersCercanos } from "../lib/geo";
 import ProductoFoto from "./ProductoFoto";
 import MapaCercanos from "./MapaCercanos";
@@ -163,17 +164,19 @@ export default function AppClient() {
   }
   async function leerFoto(e) {
     const file = e.target.files?.[0]; e.target.value = ""; if (!file) return;
-    setFotoMsg("Leyendo la foto...");
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const res = await fetch("/api/lista-foto", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imagen: reader.result }) });
-        const data = await res.json();
-        if (!res.ok) return setFotoMsg(data.error || "No pude leer la foto.");
-        setTexto(data.texto); setPantalla("app"); save(K.visto, "app"); setFotoMsg("Foto leída."); setPestana("resultado");
-      } catch { setFotoMsg("No se pudo enviar la foto."); }
-    };
-    reader.readAsDataURL(file);
+    setFotoMsg("Preparando la foto...");
+    try {
+      const imagen = await comprimirImagen(file);
+      setFotoMsg("Leyendo la foto...");
+      const res = await fetch("/api/lista-foto", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imagen }) });
+      let data = {};
+      try { data = await res.json(); } catch { data = {}; }
+      if (!res.ok) {
+        if (res.status === 413) return setFotoMsg("La foto es muy pesada. Toma otra más cerca.");
+        return setFotoMsg(data.error || "No pude leer la foto.");
+      }
+      setTexto(data.texto); setPantalla("app"); save(K.visto, "app"); setFotoMsg("Foto leída."); setPestana("resultado");
+    } catch { setFotoMsg("No se pudo enviar la foto."); }
   }
 
   if (pantalla === "inicio") {
@@ -210,8 +213,8 @@ export default function AppClient() {
         <section className="card">
           <h2>1. Sube tu despensa</h2>
           <div className={"drop" + (arrastrando ? " on" : "")} onDragOver={(e) => { e.preventDefault(); setArrastrando(true); }} onDragLeave={() => setArrastrando(false)} onDrop={(e) => { e.preventDefault(); setArrastrando(false); procesarArchivo(e.dataTransfer.files?.[0]); }}>
-            <b>Arrastra cualquier archivo aquí</b>
-            <p className="small">Mejor: .txt, .csv o Excel.</p>
+            <b>Arrastra tu lista aquí</b>
+            <p className="small">.txt o .csv. Si la tienes en Excel: Archivo → Guardar como → CSV.</p>
             <div className="row" style={{ justifyContent: "center" }}>
               <a className="btn sec" href="/ejemplo-despensa.txt" download>Ejemplo .txt</a>
               <a className="btn sec" href="/ejemplo-despensa.csv" download>Ejemplo CSV</a>
