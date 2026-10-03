@@ -8,7 +8,7 @@ Esta app **no** lee precios en vivo de Walmart, Soriana o Chedraui. Usa un catá
 
 ## Qué incluye
 
-- Subir .txt, .csv o Excel; foto de la lista (opcional, con key de Gemini/Groq)
+- Subir .txt o .csv (en Excel: Archivo → Guardar como → CSV); foto de la lista (opcional, con key de Gemini/Groq)
 - Producto + marca (catálogo local y Open Food Facts)
 - Una sola barra de pestañas (abajo): Subir, Resultado, Lista, Cerca, Más
 - Catálogo en Lista y en Más
@@ -22,7 +22,10 @@ Esta app **no** lee precios en vivo de Walmart, Soriana o Chedraui. Usa un catá
 
 Con key (opcionales, no se quitan):
 
-- GEMINI_API_KEY o GROQ_API_KEY para lectura de foto de la lista
+- GEMINI_API_KEY o GROQ_API_KEY para lectura de foto de la lista.
+  La ruta `/api/lista-foto` prueba varios modelos vigentes en orden y acepta
+  `GEMINI_MODEL` o `GROQ_MODEL` para fijar uno a mano. La foto se reduce en el
+  celular antes de subirla (Vercel corta los envíos arriba de ~4.5 MB).
 
 Sin key ni registro:
 
@@ -52,5 +55,19 @@ Solo si quieres leer fotos:
 
 1. Repo privado despensaensupermercados
 2. Vercel → Import → Framework Next.js → Root Directory .
-3. No subas node_modules ni .env
-4. Abre la URL en el celular → Agregar a pantalla de inicio
+3. Node.js 24 (`package.json → engines.node = 24.x`). Node 20 ya no está
+   disponible en Vercel desde el 1 de octubre de 2026: con 20.x el deploy falla.
+4. No subas node_modules ni .env (van en .gitignore). Sí sube package-lock.json.
+5. Keys opcionales: Vercel → Settings → Environment Variables → GEMINI_API_KEY
+   o GROQ_API_KEY (opcional: GEMINI_MODEL / GROQ_MODEL). Sin keys, la app
+   funciona con .txt y .csv.
+6. Comandos que usa Vercel: `npm install` → `npm run build` → `next start`.
+7. Abre la URL en el celular → Agregar a pantalla de inicio
+
+Antes de subir, comprueba en local:
+
+```bash
+npm ci
+npm run build
+```
+

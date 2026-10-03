@@ -1,4 +1,5 @@
-export const dynamic = "force-dynamic";
+// La ruta lee ?q= en cada petición, así que es dinámica por sí sola.
+// El caché de datos (revalidate) evita golpear Open Food Facts en cada visita.
 
 function limpia(s) {
   return String(s || "")
@@ -27,7 +28,7 @@ export async function GET(request) {
       next: { revalidate: 43200 },
     });
     if (!res.ok) {
-      return Response.json({ marcas: [], fuente: "openfoodfacts", error: "upstream" }, { status: 200 });
+      return Response.json({ marcas: [], fuente: "openfoodfacts", error: "upstream" });
     }
     const data = await res.json();
     const seen = new Set();
@@ -50,6 +51,6 @@ export async function GET(request) {
       }
     );
   } catch {
-    return Response.json({ marcas: [] }, { status: 200 });
+    return Response.json({ marcas: [] });
   }
 }
