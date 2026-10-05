@@ -12,6 +12,12 @@ import ProductoFoto from "./ProductoFoto";
 import MapaCercanos from "./MapaCercanos";
 import SelectorMarca from "./SelectorMarca";
 import CatalogoGrid from "./CatalogoGrid";
+import ActionButton from "./ActionButton";
+import SearchableCombobox from "./SearchableCombobox";
+import TabBar, { APP_TABS } from "./TabBar";
+import SwipeTabPanel from "./SwipeTabPanel";
+import CollapsiblePanel from "./CollapsiblePanel";
+import useActionStatus from "./useActionStatus";
 
 const K = {
   listas: "despensa-mx-listas",
@@ -33,8 +39,36 @@ const money = (n) => new Intl.NumberFormat("es-MX", { style: "currency", currenc
 const save = (k, v) => { try { localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v)); } catch {} };
 const load = (k) => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : null; } catch { return null; } };
 
+function FeedbackMessage({ message, type = "info" }) {
+  if (!message) return null;
+  const icon = type === "error" ? "!" : type === "success" ? "✓" : "i";
+  return (
+    <div
+      className={`feedback-message feedback-${type}`}
+      role={type === "error" ? "alert" : "status"}
+      aria-live={type === "error" ? "assertive" : "polite"}
+      aria-atomic="true"
+    >
+      <span className="feedback-icon" aria-hidden="true">{icon}</span>
+      <span>{message}</span>
+    </div>
+  );
+}
+
 export default function AppClient() {
   const fileRef = useRef(null);
+  const fotoRef = useRef(null);
+  const fileLockRef = useRef(false);
+  const fotoLockRef = useRef(false);
+  const cercaLockRef = useRef(false);
+  const panelTimerRef = useRef(null);
+  const [estadoArchivo, setEstadoArchivo] = useActionStatus();
+  const [estadoFoto, setEstadoFoto] = useActionStatus();
+  const [estadoCerca, setEstadoCerca] = useActionStatus();
+  const [estadoInstalar, setEstadoInstalar] = useActionStatus();
+  const [estadoOferta, setEstadoOferta] = useActionStatus();
+  const [estadoLista, setEstadoLista] = useActionStatus();
+
   const [pantalla, setPantalla] = useState("inicio");
   const [texto, setTexto] = useState("");
   const [nombreLista, setNombreLista] = useState("Despensa semanal");
@@ -43,6 +77,7 @@ export default function AppClient() {
   const [promptInstall, setPromptInstall] = useState(null);
   const [showInstall, setShowInstall] = useState(false);
   const [mensaje, setMensaje] = useState("");
+  const [mensajeTipo, setMensajeTipo] = useState("info");
   const [arrastrando, setArrastrando] = useState(false);
   const [verCatalogo, setVerCatalogo] = useState(false);
   const [verTiendas, setVerTiendas] = useState(false);
@@ -63,7 +98,10 @@ export default function AppClient() {
   const [avisoDia] = useState(() => avisoDiaCompra());
   const [antojos, setAntojos] = useState({});
   const [pestana, setPestana] = useState("subir");
+  const [panelAnterior, setPanelAnterior] = useState(null);
+  const [direccionPanel, setDireccionPanel] = useState("forward");
   const [cercaMsg, setCercaMsg] = useState("");
+  const [cercaMsgTipo, setCercaMsgTipo] = useState("info");
   const [cercanos, setCercanos] = useState([]);
   const [miUbicacion, setMiUbicacion] = useState(null);
   const [sucursal, setSucursal] = useState(null);
@@ -90,14 +128,24 @@ export default function AppClient() {
       setEsApp(!!instalada);
       if (instalada) setPantalla("app");
       if (localStorage.getItem(K.demo) !== "1") {
-        setTexto(DEMO); setNombreLista("Ejemplo para ver cómo funciona"); setPantalla("app"); setPestana("resultado"); setDemoActiva(true); setAntojos({ "linea-2": true }); setMensaje("Esto es una precarga de ejemplo. Puedes quitarla con el botón.");
+        setTexto(DEMO);
+        setNombreLista("Ejemplo para ver cómo funciona");
+        setPantalla("app");
+        setPestana("resultado");
+        setDemoActiva(true);
+        setAntojos({ "linea-2": true });
+        setMensaje("Esto es una precarga de ejemplo. Puedes quitarla con el botón.");
+        setMensajeTipo("info");
       }
     } catch {}
     setOrigen(window.location.origin);
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
     const onPrompt = (e) => { e.preventDefault(); setPromptInstall(e); setShowInstall(true); };
     window.addEventListener("beforeinstallprompt", onPrompt);
-    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      if (panelTimerRef.current) window.clearTimeout(panelTimerRef.current);
+    };
   }, []);
 
   const items = useMemo(() => parsearLista(texto), [texto]);
@@ -106,7 +154,6 @@ export default function AppClient() {
   const ganadora = ranking[0];
   const masCara = ranking[ranking.length - 1];
   const ahorro = ganadora && masCara ? Math.max(0, masCara.total - ganadora.total) : 0;
-  const ahorroPct = masCara && masCara.total ? Math.round((ahorro / masCara.total) * 100) : 0;
   const noReconocidos = useMemo(() => items.filter((it) => !emparejar(it).producto), [items]);
   const pesoKg = useMemo(() => items.reduce((acc, item) => alacena[item.id] ? acc : acc + ((emparejar(item).producto ? PESO_KG[emparejar(item).producto.id] || 0.4 : 0.4) * item.cantidad), 0), [items, alacena]);
   const itemsPasillo = useMemo(() => [...items].sort((a, b) => (ORDEN_PASILLO[emparejar(a).producto?.categoria] || 9) - (ORDEN_PASILLO[emparejar(b).producto?.categoria] || 9)), [items]);
@@ -117,81 +164,261 @@ export default function AppClient() {
   const hechos = items.filter((it) => marcados[it.id]).length;
   const faltanBasicos = BASICOS.filter((b) => !items.some((it) => it.nombre.toLowerCase().includes(b.split(" ")[0])));
 
+  function notificar(text, type = "success") {
+    setMensaje(text);
+    setMensajeTipo(type);
+  }
+
+  function cambiarPestana(siguiente) {
+    if (!APP_TABS.some((tab) => tab.id === siguiente)) return;
+
+    if (siguiente !== pestana) {
+      const indexActual = APP_TABS.findIndex((tab) => tab.id === pestana);
+      const indexSiguiente = APP_TABS.findIndex((tab) => tab.id === siguiente);
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      if (panelTimerRef.current) window.clearTimeout(panelTimerRef.current);
+      setDireccionPanel(indexSiguiente >= indexActual ? "forward" : "backward");
+      if (reduced) {
+        setPanelAnterior(null);
+      } else {
+        setPanelAnterior(pestana);
+        panelTimerRef.current = window.setTimeout(() => {
+          setPanelAnterior(null);
+          panelTimerRef.current = null;
+        }, 250);
+      }
+      setPestana(siguiente);
+    }
+
+    if (siguiente === "cerca" && !cercanos.length && !cercaLockRef.current) buscarCerca();
+  }
+
   function irApp(extra) {
-    setPantalla("app"); save(K.visto, "app");
-    if (extra === "archivo") setTimeout(() => fileRef.current?.click(), 200);
-    if (extra === "catalogo") { setVerCatalogo(true); setPestana("lista"); }
+    setPantalla("app");
+    save(K.visto, "app");
+    if (extra === "archivo") {
+      cambiarPestana("subir");
+      setTimeout(() => fileRef.current?.click(), 200);
+    }
+    if (extra === "catalogo") {
+      setVerCatalogo(true);
+      cambiarPestana("lista");
+    }
   }
+
   function quitarPrecarga() {
-    setTexto(""); setNombreLista("Despensa semanal"); setMarcados({}); setAlacena({}); setSoloOferta({}); setAntojos({}); setSucursal(null); setDemoActiva(false); setPestana("subir"); save(K.demo, "1"); setMensaje("Quité la precarga.");
+    setTexto("");
+    setNombreLista("Despensa semanal");
+    setMarcados({});
+    setAlacena({});
+    setSoloOferta({});
+    setAntojos({});
+    setSucursal(null);
+    setDemoActiva(false);
+    cambiarPestana("subir");
+    save(K.demo, "1");
+    notificar("Quité la precarga.");
   }
+
   function verPrecarga() {
-    setTexto(DEMO); setNombreLista("Ejemplo para ver cómo funciona"); setPantalla("app"); setPestana("resultado"); setDemoActiva(true); setAntojos({ "linea-2": true }); localStorage.removeItem(K.demo); setMensaje("Volvió el ejemplo.");
+    setTexto(DEMO);
+    setNombreLista("Ejemplo para ver cómo funciona");
+    setPantalla("app");
+    cambiarPestana("resultado");
+    setDemoActiva(true);
+    setAntojos({ "linea-2": true });
+    localStorage.removeItem(K.demo);
+    notificar("Volvió el ejemplo.", "info");
   }
+
   function guardarMarca(id, marca) {
-    const next = { ...marcas }; if (marca) next[id] = marca; else delete next[id]; setMarcas(next); save(K.marcas, next);
+    const next = { ...marcas };
+    if (marca) next[id] = marca;
+    else delete next[id];
+    setMarcas(next);
+    save(K.marcas, next);
   }
+
   function agregarProducto(prod, marca) {
-    setTexto((p) => agregarOSumarProducto(p, prod.aliases[0] || prod.nombre));
+    setTexto((previous) => agregarOSumarProducto(previous, prod.aliases[0] || prod.nombre));
     if (marca) guardarMarca(prod.id, marca);
-    setMensaje(marca ? "Agregué " + prod.nombre + " · " + marca : "Agregué " + prod.nombre);
+    notificar(marca ? `Agregué ${prod.nombre} · ${marca}.` : `Agregué ${prod.nombre}.`);
   }
+
   async function procesarArchivo(file) {
-    if (!file) return;
+    if (!file || fileLockRef.current) return;
+    fileLockRef.current = true;
+    setEstadoArchivo("loading");
+
     try {
       const { texto: content, aviso } = await leerCualquierArchivo(file);
-      setTexto(content); setNombreLista(file.name.replace(/\.[^.]+$/, "")); setMarcados({}); setPantalla("app"); save(K.visto, "app");
-      setMensaje((aviso || "Archivo listo.") + " Abajo está la tienda más barata.");
-      setTimeout(() => setPestana("resultado"), 80);
-    } catch (err) { setMensaje(err.message || "No pude leer ese archivo."); setPantalla("app"); }
+      setTexto(content);
+      setNombreLista(file.name.replace(/\.[^.]+$/, ""));
+      setMarcados({});
+      setPantalla("app");
+      save(K.visto, "app");
+      notificar((aviso || "Archivo listo.") + " Abajo está la tienda más barata.");
+      setEstadoArchivo("success");
+      setTimeout(() => cambiarPestana("resultado"), 80);
+    } catch (err) {
+      const error = err.message || "No pude leer ese archivo.";
+      notificar(error, "error");
+      setPantalla("app");
+      setEstadoArchivo("error");
+    } finally {
+      fileLockRef.current = false;
+    }
   }
+
   function origenMaps() {
     if (partidaModo === "gps" && miUbicacion) return miUbicacion.lat + "," + miUbicacion.lon;
     if (partidaModo === "manual" && partidaTexto.trim()) return partidaTexto.trim() + " México";
     return zona + " México";
   }
+
   const mapaUrl = (n) => "https://www.google.com/maps/dir/?api=1&origin=" + encodeURIComponent(origenMaps()) + "&destination=" + encodeURIComponent(n + " " + zona + " México");
   const rumboUrl = (lat, lon) => "https://www.google.com/maps/dir/?api=1&origin=" + encodeURIComponent(origenMaps()) + "&destination=" + lat + "," + lon;
-  async function buscarCerca() {
-    if (!navigator.geolocation) return setCercaMsg("Este celular no da ubicación.");
-    setCercaMsg("Pidiendo tu ubicación...");
+
+  function buscarCerca() {
+    if (cercaLockRef.current) return;
+    if (!navigator.geolocation) {
+      setCercaMsg("Este celular no da ubicación.");
+      setCercaMsgTipo("error");
+      setEstadoCerca("error");
+      return;
+    }
+
+    cercaLockRef.current = true;
+    setCercaMsg("Pidiendo tu ubicación…");
+    setCercaMsgTipo("info");
+    setEstadoCerca("loading");
+
     navigator.geolocation.getCurrentPosition(async (pos) => {
-      const lat = pos.coords.latitude, lon = pos.coords.longitude;
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
       setMiUbicacion({ lat, lon });
-      try { const lista = await buscarSupersCercanos(lat, lon); setCercanos(lista); setCercaMsg(lista.length ? "Estos te quedan más cerca:" : "No encontré súpers cerca."); }
-      catch (err) { setCercaMsg(err.message || "No pude buscar ahora."); }
-    }, () => setCercaMsg("No autorizaste la ubicación."), { enableHighAccuracy: true, timeout: 12000 });
+      try {
+        const lista = await buscarSupersCercanos(lat, lon);
+        setCercanos(lista);
+        setCercaMsg(lista.length ? "Estos te quedan más cerca:" : "No encontré súpers cerca.");
+        setCercaMsgTipo(lista.length ? "success" : "info");
+        setEstadoCerca("success");
+      } catch (err) {
+        setCercaMsg(err.message || "No pude buscar ahora.");
+        setCercaMsgTipo("error");
+        setEstadoCerca("error");
+      } finally {
+        cercaLockRef.current = false;
+      }
+    }, () => {
+      setCercaMsg("No autorizaste la ubicación.");
+      setCercaMsgTipo("error");
+      setEstadoCerca("error");
+      cercaLockRef.current = false;
+    }, { enableHighAccuracy: true, timeout: 12000 });
   }
-  async function leerFoto(e) {
-    const file = e.target.files?.[0]; e.target.value = ""; if (!file) return;
-    setFotoMsg("Preparando la foto...");
+
+  async function leerFoto(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || fotoLockRef.current) return;
+    fotoLockRef.current = true;
+    setEstadoFoto("loading");
+    setFotoMsg("Preparando la foto…");
+
     try {
       const imagen = await comprimirImagen(file);
-      setFotoMsg("Leyendo la foto...");
-      const res = await fetch("/api/lista-foto", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imagen }) });
+      setFotoMsg("Leyendo la foto…");
+      const response = await fetch("/api/lista-foto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imagen }),
+      });
       let data = {};
-      try { data = await res.json(); } catch { data = {}; }
-      if (!res.ok) {
-        if (res.status === 413) return setFotoMsg("La foto es muy pesada. Toma otra más cerca.");
-        return setFotoMsg(data.error || "No pude leer la foto.");
+      try { data = await response.json(); } catch { data = {}; }
+      if (!response.ok) {
+        if (response.status === 413) throw new Error("La foto es muy pesada. Toma otra más cerca.");
+        throw new Error(data.error || "No pude leer la foto.");
       }
-      setTexto(data.texto); setPantalla("app"); save(K.visto, "app"); setFotoMsg("Foto leída."); setPestana("resultado");
-    } catch { setFotoMsg("No se pudo enviar la foto."); }
+
+      setTexto(data.texto);
+      setPantalla("app");
+      save(K.visto, "app");
+      setFotoMsg("");
+      notificar("Foto leída. Revisa la lista y el resultado.");
+      setEstadoFoto("success");
+      cambiarPestana("resultado");
+    } catch (error) {
+      const message = error.message || "No se pudo enviar la foto.";
+      setFotoMsg(message);
+      notificar(message, "error");
+      setEstadoFoto("error");
+    } finally {
+      fotoLockRef.current = false;
+    }
   }
+
+  async function instalarApp() {
+    if (!promptInstall) return;
+    setEstadoInstalar("loading");
+    try {
+      promptInstall.prompt();
+      await promptInstall.userChoice;
+      setPromptInstall(null);
+      setShowInstall(false);
+      setEstadoInstalar("success");
+      notificar("Solicitud de instalación enviada.");
+    } catch {
+      setEstadoInstalar("error");
+      notificar("No se pudo iniciar la instalación. Inténtalo de nuevo desde el menú del navegador.", "error");
+    }
+  }
+
+  const mostrarPanel = (id) => pestana === id || panelAnterior === id;
 
   if (pantalla === "inicio") {
     return (
       <div className="wrap">
-        <section className="hero"><h1>Despensa MX</h1><p>Sube tu lista. En segundos te digo en qué súper del Valle de México sale más barato comprar todo junto.</p></section>
+        <section className="hero">
+          <h1>Despensa MX</h1>
+          <p>Sube tu lista. En segundos te digo en qué súper del Valle de México sale más barato comprar todo junto.</p>
+        </section>
+        <FeedbackMessage message={mensaje} type={mensajeTipo} />
         <div className="home-actions">
           <button className="btn home-btn" type="button" onClick={() => irApp("archivo")}>Subir archivo de despensa</button>
           <button className="btn sec home-btn" type="button" onClick={() => irApp()}>Escribir la lista a mano</button>
-          <label className="btn sec home-btn" style={{ cursor: "pointer" }}>Foto de la lista<input type="file" accept="image/*" capture="environment" hidden onChange={leerFoto} /></label>
+          <ActionButton
+            className="btn sec home-btn"
+            status={estadoFoto}
+            loadingLabel="Leyendo foto…"
+            successLabel="Foto leída"
+            errorLabel="Reintentar foto"
+            onClick={() => fotoRef.current?.click()}
+          >Foto de la lista</ActionButton>
           <button className="btn sec home-btn" type="button" onClick={() => irApp("catalogo")}>Ver catálogo</button>
           <button className="btn sec home-btn" type="button" onClick={verPrecarga}>Ver ejemplo precargado</button>
         </div>
+        {fotoMsg ? <p className="small action-message" role={estadoFoto === "loading" ? "status" : undefined} aria-live={estadoFoto === "loading" ? "polite" : "off"}>{fotoMsg}</p> : null}
         <p className="hint">Precios de referencia para CDMX y zona conurbada.</p>
-        <input ref={fileRef} type="file" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; procesarArchivo(f); }} />
+        <input
+          ref={fileRef}
+          type="file"
+          hidden
+          aria-label="Seleccionar archivo .txt o .csv de despensa"
+          disabled={estadoArchivo === "loading"}
+          onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; procesarArchivo(file); }}
+        />
+        <input
+          ref={fotoRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          hidden
+          aria-label="Seleccionar o tomar una foto de la lista"
+          disabled={estadoFoto === "loading"}
+          onChange={leerFoto}
+        />
       </div>
     );
   }
@@ -205,179 +432,385 @@ export default function AppClient() {
           {demoActiva ? <button className="btn danger" type="button" onClick={quitarPrecarga}>Quitar precarga</button> : <button className="btn sec" type="button" onClick={verPrecarga}>Ver ejemplo</button>}
         </div>
       </section>
+      <FeedbackMessage message={mensaje} type={mensajeTipo} />
       <p className="hint">Precios de referencia, no del anaquel de hoy.</p>
       {avisoDia ? <p className="aviso">{avisoDia}</p> : null}
       {items.length ? <p className="hint">Peso estimado: {pesoKg.toFixed(1)} kg.</p> : null}
 
-      {pestana === "subir" ? (
-        <section className="card">
-          <h2>1. Sube tu despensa</h2>
-          <div className={"drop" + (arrastrando ? " on" : "")} onDragOver={(e) => { e.preventDefault(); setArrastrando(true); }} onDragLeave={() => setArrastrando(false)} onDrop={(e) => { e.preventDefault(); setArrastrando(false); procesarArchivo(e.dataTransfer.files?.[0]); }}>
-            <b>Arrastra tu lista aquí</b>
-            <p className="small">.txt o .csv. Si la tienes en Excel: Archivo → Guardar como → CSV.</p>
-            <div className="row" style={{ justifyContent: "center" }}>
-              <a className="btn sec" href="/ejemplo-despensa.txt" download>Ejemplo .txt</a>
-              <a className="btn sec" href="/ejemplo-despensa.csv" download>Ejemplo CSV</a>
-            </div>
-            <label className="btn" style={{ cursor: "pointer" }}>Elegir archivo<input ref={fileRef} type="file" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; procesarArchivo(f); }} /></label>
-            <label className="btn sec" style={{ cursor: "pointer", marginLeft: 8 }}>Foto<input type="file" accept="image/*" capture="environment" hidden onChange={leerFoto} /></label>
-          </div>
-          {mensaje ? <p className="small">{mensaje}</p> : null}
-          {fotoMsg ? <p className="small">{fotoMsg}</p> : null}
-          <div className="row" style={{ marginTop: 12 }}>
-            <label>Tu alcaldía<select value={zona} onChange={(e) => { setZona(e.target.value); save(K.zona, e.target.value); }}>{ZONAS.map((z) => <option key={z} value={z}>{z}</option>)}</select></label>
-            <label>Presupuesto tope<input type="number" min="0" placeholder="1200" value={presupuesto} onChange={(e) => { setPresupuesto(e.target.value); save(K.presu, e.target.value); }} /></label>
-          </div>
-        </section>
-      ) : null}
-
-      {pestana === "resultado" ? (
-        <>
-          <section className="card winner" id="resultado">
-            <h2>2. Dónde sale más barato comprar TODO junto</h2>
-            {!items.length || !ganadora ? <p className="small">Sube el archivo y aquí aparece la tienda ganadora.</p> : (
-              <>
-                <div className="resumen"><div>1. {sucursal ? sucursal.nombre : ganadora.tienda.nombre}</div><div>2. Total: {money(ganadora.total)}</div><div>3. Ahorro vs la más cara: {money(ahorro)}</div></div>
-                {noReconocidos.length ? <p className="faltante">No reconocí: {noReconocidos.map((x) => x.nombre).join(", ")}.</p> : <p className="ok">Reconocí todos los renglones.</p>}
-                <p className="precio grande">{money(ganadora.total)}</p>
-                <p className="small">Despensa: {money(baseGanadora)}{antojoGanadora > 0 ? " · Antojos: " + money(antojoGanadora) : ""}</p>
-                {tope > 0 && baseGanadora > tope ? <p className="faltante">Se pasa del tope de {money(tope)}.</p> : null}
-                <div className="row">
-                  <button className="btn" type="button" onClick={() => {
-                    const lineas = ["Despensa: " + nombreLista, "Más barato: " + ganadora.tienda.nombre + " " + money(ganadora.total), ""].concat(ganadora.detalle.map((d) => "• " + d.cantidad + " × " + (d.producto ? d.producto.nombre : d.nombre)));
-                    window.open("https://wa.me/?text=" + encodeURIComponent(lineas.join("\n")), "_blank");
-                  }}>WhatsApp</button>
-                  <a className="btn sec" href={mapaUrl(ganadora.tienda.nombre)} target="_blank" rel="noreferrer">Mapa</a>
-                  <button className="btn sec" type="button" onClick={() => { const next = [{ id: Date.now().toString(), fecha: new Date().toLocaleString("es-MX"), tienda: ganadora.tienda.nombre, total: ganadora.total, zona, nombre: nombreLista }, ...historial].slice(0, 20); setHistorial(next); save(K.hist, next); setMensaje("Historial guardado."); }}>Historial</button>
+      <div className="tab-panels">
+        <SwipeTabPanel
+          id="subir"
+          labelledBy="tab-subir"
+          active={pestana === "subir"}
+          exiting={panelAnterior === "subir" && pestana !== "subir"}
+          direction={direccionPanel}
+          onSwipe={(direction) => cambiarPestana(direction === "next" ? "resultado" : "subir")}
+        >
+          {mostrarPanel("subir") ? (
+            <section className="card">
+              <h2>1. Sube tu despensa</h2>
+              <div
+                className={"drop" + (arrastrando ? " on" : "")}
+                role="group"
+                aria-label="Carga de lista"
+                aria-busy={estadoArchivo === "loading" || estadoFoto === "loading"}
+                onDragOver={(event) => { event.preventDefault(); setArrastrando(true); }}
+                onDragLeave={() => setArrastrando(false)}
+                onDrop={(event) => { event.preventDefault(); setArrastrando(false); procesarArchivo(event.dataTransfer.files?.[0]); }}
+              >
+                <b>Arrastra tu lista aquí</b>
+                <p className="small">.txt o .csv. Si la tienes en Excel: Archivo → Guardar como → CSV.</p>
+                <div className="row row-center">
+                  <a className="btn sec" href="/ejemplo-despensa.txt" download>Ejemplo .txt</a>
+                  <a className="btn sec" href="/ejemplo-despensa.csv" download>Ejemplo CSV</a>
                 </div>
-                {ganadora.detalle.map((d) => (
-                  <div className="ticket-line" key={d.id}>
-                    <ProductoFoto producto={d.producto} />
-                    <div className="item-info"><b>{d.cantidad} × {d.producto ? d.producto.nombre : d.nombre}{d.producto && marcas[d.producto.id] ? " · " + marcas[d.producto.id] : ""}</b></div>
-                    <div className="precio">{d.subtotal != null ? money(d.subtotal) : "—"}</div>
-                  </div>
-                ))}
-              </>
-            )}
-          </section>
-          <section className="card">
-            <h2>Comparación</h2>
-            {[...ranking].sort((a, b) => a.total - b.total).map((r, i) => (
-              <div className="tienda" key={r.tienda.id}><div><b>{i + 1}. {r.tienda.nombre}</b>{i === 0 ? <span className="tag">más barata</span> : null}</div><div className="precio">{money(r.total)}</div></div>
-            ))}
-          </section>
-        </>
-      ) : null}
-
-      {pestana === "cerca" ? (
-        <section className="card">
-          <h2>Súpers cerca de ti</h2>
-          <input type="text" placeholder="Punto de partida" value={partidaTexto} onChange={(e) => setPartidaTexto(e.target.value)} />
-          <div className="row">
-            <button className="btn" type="button" onClick={() => { if (!partidaTexto.trim()) return setCercaMsg("Escribe una dirección."); setPartidaModo("manual"); save(K.partida, { modo: "manual", texto: partidaTexto }); setCercaMsg("Sales desde: " + partidaTexto); }}>Punto de partida</button>
-            <button className="btn sec" type="button" onClick={buscarCerca}>Buscar cerca</button>
-          </div>
-          {cercaMsg ? <p className="small">{cercaMsg}</p> : null}
-          {miUbicacion ? <MapaCercanos yo={miUbicacion} puntos={cercanos} /> : null}
-          {cercanos.map((s) => (
-            <div className="tienda" key={s.id}>
-              <div><b>{s.nombre}</b><div className="small">{s.km} km</div></div>
-              <div className="row">
-                <button className="btn sec" type="button" onClick={() => { setSucursal(s); setPestana("resultado"); }}>Usar esta</button>
-                <a className="btn sec" href={rumboUrl(s.lat, s.lon)} target="_blank" rel="noreferrer">Cómo llegar</a>
+                <div className="row row-center upload-actions">
+                  <ActionButton
+                    className="btn"
+                    status={estadoArchivo}
+                    loadingLabel="Leyendo archivo…"
+                    successLabel="Archivo listo"
+                    errorLabel="Reintentar archivo"
+                    onClick={() => fileRef.current?.click()}
+                  >Elegir archivo</ActionButton>
+                  <ActionButton
+                    className="btn sec"
+                    status={estadoFoto}
+                    loadingLabel="Leyendo foto…"
+                    successLabel="Foto leída"
+                    errorLabel="Reintentar foto"
+                    onClick={() => fotoRef.current?.click()}
+                  >Foto de la lista</ActionButton>
+                </div>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  hidden
+                  aria-label="Seleccionar archivo .txt o .csv de despensa"
+                  disabled={estadoArchivo === "loading"}
+                  onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; procesarArchivo(file); }}
+                />
+                <input
+                  ref={fotoRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  hidden
+                  aria-label="Seleccionar o tomar una foto de la lista"
+                  disabled={estadoFoto === "loading"}
+                  onChange={leerFoto}
+                />
+                {fotoMsg ? <p className="small action-message" role={estadoFoto === "loading" ? "status" : undefined} aria-live={estadoFoto === "loading" ? "polite" : "off"}>{fotoMsg}</p> : null}
               </div>
-            </div>
-          ))}
-        </section>
-      ) : null}
+              <div className="form-grid location-fields">
+                <label className="field-label" htmlFor="zona">Tu alcaldía
+                  <select id="zona" value={zona} onChange={(event) => { setZona(event.target.value); save(K.zona, event.target.value); }}>
+                    {ZONAS.map((z) => <option key={z} value={z}>{z}</option>)}
+                  </select>
+                </label>
+                <label className="field-label" htmlFor="presupuesto">Presupuesto tope
+                  <input id="presupuesto" type="number" min="0" inputMode="decimal" placeholder="1200" value={presupuesto} onChange={(event) => { setPresupuesto(event.target.value); save(K.presu, event.target.value); }} />
+                </label>
+              </div>
+            </section>
+          ) : null}
+        </SwipeTabPanel>
 
-      {pestana === "mas" ? (
-        <>
-          <section className="card">
-            <h2>Si vas a cocinar esto</h2>
-            <div className="row">{RECETAS.map((r) => <button key={r.id} className="btn sec" type="button" onClick={() => { let n = texto; r.items.forEach((nom) => { n = agregarOSumarProducto(n, nom); }); setTexto(n); setMensaje("Agregué lo de: " + r.nombre); }}>{r.nombre}</button>)}</div>
-          </section>
-          <section className="card">
-            <h2>Ofertas que tú viste</h2>
-            <div className="row">
-              <select value={ofertaProd} onChange={(e) => setOfertaProd(e.target.value)}>{PRODUCTOS.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select>
-              <select value={ofertaTienda} onChange={(e) => setOfertaTienda(e.target.value)}>{TIENDAS.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}</select>
-              <input type="number" min="1" placeholder="$" value={ofertaPrecio} onChange={(e) => setOfertaPrecio(e.target.value)} />
-              <button className="btn" type="button" onClick={() => { const precio = Number(ofertaPrecio); if (!precio) return setMensaje("Escribe el precio."); const next = [{ id: Date.now().toString(), productoId: ofertaProd, tiendaId: ofertaTienda, precio }, ...ofertas.filter((o) => !(o.productoId === ofertaProd && o.tiendaId === ofertaTienda))]; setOfertas(next); save(K.ofertas, next); setMensaje("Oferta guardada."); }}>Guardar</button>
-            </div>
-            {faltanBasicos.length ? <p className="small">¿Se te ofrece? {faltanBasicos.join(", ")}.</p> : null}
-          </section>
-          <section className="card">
-            <h2>Ajustar lista</h2>
-            <input type="text" value={nombreLista} onChange={(e) => setNombreLista(e.target.value)} />
-            <textarea value={texto} onChange={(e) => setTexto(e.target.value)} />
-            <div className="row">
-              <button className="btn" type="button" onClick={() => { if (!items.length) return setMensaje("Escribe o sube una lista."); const next = [{ id: Date.now().toString(), nombre: nombreLista, texto, fecha: new Date().toLocaleString("es-MX") }, ...guardadas]; setGuardadas(next); save(K.listas, next); setMensaje("Lista guardada."); }}>Guardar</button>
-              <button className="btn sec" type="button" onClick={() => setVerCatalogo((v) => !v)}>{verCatalogo ? "Ocultar catálogo" : "Catálogo"}</button>
-              <button className="btn sec" type="button" onClick={() => setVerTiendas((v) => !v)}>Mis tiendas</button>
-              <button className="btn sec" type="button" onClick={() => setVerQR((v) => !v)}>QR</button>
-            </div>
-          </section>
-          {verQR && qr ? <section className="card qr-box"><img src={qr} alt="QR" /></section> : null}
-          {verCatalogo ? <section className="card"><h2>Catálogo con marca</h2><CatalogoGrid marcas={marcas} onPick={(prod) => setPicker({ modo: "agregar", producto: prod })} /></section> : null}
-          {verTiendas ? <section className="card">{TIENDAS.map((t) => <label key={t.id} className="check-line"><input type="checkbox" checked={tiendasOn[t.id] !== false} onChange={() => { const next = { ...tiendasOn, [t.id]: tiendasOn[t.id] === false }; setTiendasOn(next); save(K.tiendas, next); }} />{t.nombre}</label>)}</section> : null}
-          <section className="card"><h2>Privacidad</h2><a className="btn sec" href="/privacidad">Política de privacidad</a></section>
-          <section className="card"><h2>Listas guardadas</h2>{guardadas.map((lista) => <div className="lista-guardada" key={lista.id}><div><b>{lista.nombre}</b></div><div className="row"><button className="btn sec" type="button" onClick={() => { setNombreLista(lista.nombre); setTexto(lista.texto); }}>Abrir</button><button className="btn danger" type="button" onClick={() => { const next = guardadas.filter((l) => l.id !== lista.id); setGuardadas(next); save(K.listas, next); }}>Borrar</button></div></div>)}</section>
-        </>
-      ) : null}
+        <SwipeTabPanel
+          id="resultado"
+          labelledBy="tab-resultado"
+          active={pestana === "resultado"}
+          exiting={panelAnterior === "resultado" && pestana !== "resultado"}
+          direction={direccionPanel}
+          onSwipe={(direction) => cambiarPestana(direction === "next" ? "lista" : "subir")}
+        >
+          {mostrarPanel("resultado") ? (
+            <>
+              <section className="card winner" id="resultado">
+                <h2>2. Dónde sale más barato comprar TODO junto</h2>
+                {!items.length || !ganadora ? <p className="small">Sube el archivo y aquí aparece la tienda ganadora.</p> : (
+                  <>
+                    <div className="resumen"><div>1. {sucursal ? sucursal.nombre : ganadora.tienda.nombre}</div><div>2. Total: {money(ganadora.total)}</div><div>3. Ahorro vs la más cara: {money(ahorro)}</div></div>
+                    {noReconocidos.length ? <p className="faltante">No reconocí: {noReconocidos.map((x) => x.nombre).join(", ")}.</p> : <p className="ok">Reconocí todos los renglones.</p>}
+                    <p className="precio grande">{money(ganadora.total)}</p>
+                    <p className="small">Despensa: {money(baseGanadora)}{antojoGanadora > 0 ? " · Antojos: " + money(antojoGanadora) : ""}</p>
+                    {tope > 0 && baseGanadora > tope ? <p className="faltante">Se pasa del tope de {money(tope)}.</p> : null}
+                    <div className="row">
+                      <button className="btn" type="button" onClick={() => {
+                        const lineas = ["Despensa: " + nombreLista, "Más barato: " + ganadora.tienda.nombre + " " + money(ganadora.total), ""].concat(ganadora.detalle.map((d) => "• " + d.cantidad + " × " + (d.producto ? d.producto.nombre : d.nombre)));
+                        window.open("https://wa.me/?text=" + encodeURIComponent(lineas.join("\n")), "_blank");
+                      }}>WhatsApp</button>
+                      <a className="btn sec" href={mapaUrl(ganadora.tienda.nombre)} target="_blank" rel="noreferrer">Mapa</a>
+                      <button className="btn sec" type="button" onClick={() => { const next = [{ id: Date.now().toString(), fecha: new Date().toLocaleString("es-MX"), tienda: ganadora.tienda.nombre, total: ganadora.total, zona, nombre: nombreLista }, ...historial].slice(0, 20); setHistorial(next); save(K.hist, next); notificar("Historial guardado."); }}>Historial</button>
+                    </div>
+                    {ganadora.detalle.map((d) => (
+                      <div className="ticket-line" key={d.id}>
+                        <ProductoFoto producto={d.producto} />
+                        <div className="item-info"><b>{d.cantidad} × {d.producto ? d.producto.nombre : d.nombre}{d.producto && marcas[d.producto.id] ? " · " + marcas[d.producto.id] : ""}</b></div>
+                        <div className="precio">{d.subtotal != null ? money(d.subtotal) : "—"}</div>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </section>
+              <section className="card">
+                <h2>Comparación</h2>
+                {[...ranking].sort((a, b) => a.total - b.total).map((r, i) => (
+                  <div className="tienda" key={r.tienda.id}><div><b>{i + 1}. {r.tienda.nombre}</b>{i === 0 ? <span className="tag">más barata</span> : null}</div><div className="precio">{money(r.total)}</div></div>
+                ))}
+              </section>
+            </>
+          ) : null}
+        </SwipeTabPanel>
 
-      {pestana === "lista" ? (
-        <>
-          <section className="card">
-            <h2>Toca para agregar (y elegir marca)</h2>
-            <p className="small">Al tocar el producto se abre la marca.</p>
-            <CatalogoGrid marcas={marcas} onPick={(prod) => setPicker({ modo: "agregar", producto: prod })} />
-          </section>
-          <section className="card">
-            <h2>Para llevar al súper {items.length ? "(" + hechos + "/" + items.length + ")" : ""}</h2>
-            {itemsPasillo.map((item) => {
-              const indice = items.findIndex((x) => x.id === item.id);
-              const producto = emparejar(item).producto;
-              const cat = producto?.categoria || "despensa";
-              return (
-                <div className={"item-card" + (marcados[item.id] ? " hecho" : "") + (antojos[item.id] ? " antojo" : "")} key={item.id} style={{ background: antojos[item.id] ? "#ffe8f0" : COLORES[cat] }}>
-                  <label className="check"><input type="checkbox" checked={!!marcados[item.id]} onChange={() => setMarcados((m) => ({ ...m, [item.id]: !m[item.id] }))} /></label>
-                  <button type="button" className="foto-tap" onClick={() => producto && setPicker({ modo: "linea", producto })}><ProductoFoto producto={producto} /></button>
-                  <div className="item-info">
-                    <button type="button" className="nombre-tap" onClick={() => producto && setPicker({ modo: "linea", producto })}><b>{producto ? producto.nombre : item.nombre}</b></button>
-                    <div className="small">{NOMBRE_PASILLO[cat] || "Otros"} · {item.cantidad}{marcas[producto?.id] ? " · Marca: " + marcas[producto.id] : ""}</div>
-                    {producto && SUSTITUTOS[producto.id] ? <div className="small">{SUSTITUTOS[producto.id]}</div> : null}
-                    <label className="small"><input type="checkbox" checked={!!alacena[item.id]} onChange={() => { const n = { ...alacena, [item.id]: !alacena[item.id] }; setAlacena(n); save(K.alacena, n); }} /> Ya está en casa</label>
-                    <label className="small"><input type="checkbox" checked={!!antojos[item.id]} onChange={() => { const n = { ...antojos, [item.id]: !antojos[item.id] }; setAntojos(n); save(K.antojo, n); }} /> Antojo</label>
+        <SwipeTabPanel
+          id="lista"
+          labelledBy="tab-lista"
+          active={pestana === "lista"}
+          exiting={panelAnterior === "lista" && pestana !== "lista"}
+          direction={direccionPanel}
+          onSwipe={(direction) => cambiarPestana(direction === "next" ? "cerca" : "resultado")}
+        >
+          {mostrarPanel("lista") ? (
+            <>
+              <section className="card">
+                <h2>Toca para agregar (y elegir marca)</h2>
+                <p className="small">Al tocar un producto se abre el selector de marca.</p>
+                <CatalogoGrid marcas={marcas} onPick={(prod) => setPicker({ modo: "agregar", producto: prod })} />
+              </section>
+              <section className="card">
+                <h2>Para llevar al súper {items.length ? `(${hechos}/${items.length})` : ""}</h2>
+                {itemsPasillo.map((item) => {
+                  const indice = items.findIndex((x) => x.id === item.id);
+                  const producto = emparejar(item).producto;
+                  const cat = producto?.categoria || "despensa";
+                  const estaMarcado = !!marcados[item.id];
+                  return (
+                    <div className={"item-card" + (estaMarcado ? " hecho" : "") + (antojos[item.id] ? " antojo" : "")} key={item.id} style={{ background: antojos[item.id] ? "#ffe8f0" : COLORES[cat] }}>
+                      <label className="check">
+                        <input
+                          type="checkbox"
+                          checked={estaMarcado}
+                          aria-label={`${estaMarcado ? "Marcar como pendiente" : "Marcar como comprado"}: ${item.nombre}`}
+                          onChange={() => setMarcados((current) => ({ ...current, [item.id]: !current[item.id] }))}
+                        />
+                      </label>
+                      <button type="button" className="foto-tap" aria-label={`Cambiar marca de ${item.nombre}`} onClick={() => producto && setPicker({ modo: "linea", producto })}>
+                        <ProductoFoto producto={producto} />
+                      </button>
+                      <div className="item-info">
+                        <button type="button" className="nombre-tap" onClick={() => producto && setPicker({ modo: "linea", producto })}>
+                          <b>{producto ? producto.nombre : item.nombre}</b>
+                        </button>
+                        <div className="small">{NOMBRE_PASILLO[cat] || "Otros"} · {item.cantidad}{marcas[producto?.id] ? " · Marca: " + marcas[producto.id] : ""}</div>
+                        {producto && SUSTITUTOS[producto.id] ? <div className="small">{SUSTITUTOS[producto.id]}</div> : null}
+                        <label className="small check-label"><input type="checkbox" checked={!!alacena[item.id]} onChange={() => { const next = { ...alacena, [item.id]: !alacena[item.id] }; setAlacena(next); save(K.alacena, next); }} /> Ya está en casa</label>
+                        <label className="small check-label"><input type="checkbox" checked={!!antojos[item.id]} onChange={() => { const next = { ...antojos, [item.id]: !antojos[item.id] }; setAntojos(next); save(K.antojo, next); }} /> Antojo</label>
+                      </div>
+                      <div className="qty">
+                        <button type="button" aria-label={`Disminuir cantidad de ${item.nombre}`} onClick={() => setTexto((previous) => cambiarCantidadEnTexto(previous, indice, Math.max(1, item.cantidad - 1)))}>−</button>
+                        <input type="number" min="1" inputMode="numeric" aria-label={`Cantidad de ${item.nombre}`} value={item.cantidad} onChange={(event) => setTexto((previous) => cambiarCantidadEnTexto(previous, indice, Math.max(1, Number(event.target.value) || 1)))} />
+                        <button type="button" aria-label={`Aumentar cantidad de ${item.nombre}`} onClick={() => setTexto((previous) => cambiarCantidadEnTexto(previous, indice, item.cantidad + 1))}>+</button>
+                      </div>
+                      <button className="btn-x" type="button" aria-label={`Quitar ${item.nombre} de la lista`} onClick={() => setTexto((previous) => borrarLineaEnTexto(previous, indice))}>✕</button>
+                    </div>
+                  );
+                })}
+              </section>
+            </>
+          ) : null}
+        </SwipeTabPanel>
+
+        <SwipeTabPanel
+          id="cerca"
+          labelledBy="tab-cerca"
+          active={pestana === "cerca"}
+          exiting={panelAnterior === "cerca" && pestana !== "cerca"}
+          direction={direccionPanel}
+          onSwipe={(direction) => cambiarPestana(direction === "next" ? "mas" : "lista")}
+        >
+          {mostrarPanel("cerca") ? (
+            <section className="card">
+              <h2>Súpers cerca de ti</h2>
+              <label className="field-label" htmlFor="punto-partida">Punto de partida</label>
+              <input id="punto-partida" type="text" autoComplete="street-address" placeholder="Colonia, calle o alcaldía" value={partidaTexto} onChange={(event) => setPartidaTexto(event.target.value)} />
+              <div className="row">
+                <button className="btn" type="button" onClick={() => {
+                  if (!partidaTexto.trim()) {
+                    setCercaMsg("Escribe una dirección.");
+                    setCercaMsgTipo("error");
+                    return;
+                  }
+                  setPartidaModo("manual");
+                  save(K.partida, { modo: "manual", texto: partidaTexto });
+                  setCercaMsg("Sales desde: " + partidaTexto);
+                  setCercaMsgTipo("success");
+                }}>Usar este punto</button>
+                <ActionButton
+                  className="btn sec"
+                  status={estadoCerca}
+                  loadingLabel="Buscando cerca…"
+                  successLabel="Búsqueda lista"
+                  errorLabel="Reintentar búsqueda"
+                  onClick={buscarCerca}
+                >Buscar cerca</ActionButton>
+              </div>
+              {cercaMsg ? <p className={`small status-message status-${cercaMsgTipo}`} role={cercaMsgTipo === "error" ? "alert" : "status"} aria-live={cercaMsgTipo === "error" ? "assertive" : "polite"} aria-busy={estadoCerca === "loading"}>{cercaMsg}</p> : null}
+              {miUbicacion ? <MapaCercanos yo={miUbicacion} puntos={cercanos} /> : null}
+              {cercanos.map((store) => (
+                <div className="tienda" key={store.id}>
+                  <div><b>{store.nombre}</b><div className="small">{store.km} km</div></div>
+                  <div className="row">
+                    <button className="btn sec" type="button" onClick={() => { setSucursal(store); cambiarPestana("resultado"); }}>Usar esta</button>
+                    <a className="btn sec" href={rumboUrl(store.lat, store.lon)} target="_blank" rel="noreferrer">Cómo llegar</a>
                   </div>
-                  <div className="qty">
-                    <button type="button" onClick={() => setTexto((p) => cambiarCantidadEnTexto(p, indice, Math.max(1, item.cantidad - 1)))}>−</button>
-                    <input type="number" min="1" value={item.cantidad} onChange={(e) => setTexto((p) => cambiarCantidadEnTexto(p, indice, Math.max(1, Number(e.target.value) || 1)))} />
-                    <button type="button" onClick={() => setTexto((p) => cambiarCantidadEnTexto(p, indice, item.cantidad + 1))}>+</button>
-                  </div>
-                  <button className="btn-x" type="button" onClick={() => setTexto((p) => borrarLineaEnTexto(p, indice))}>✕</button>
                 </div>
-              );
-            })}
-          </section>
-        </>
-      ) : null}
+              ))}
+            </section>
+          ) : null}
+        </SwipeTabPanel>
+
+        <SwipeTabPanel
+          id="mas"
+          labelledBy="tab-mas"
+          active={pestana === "mas"}
+          exiting={panelAnterior === "mas" && pestana !== "mas"}
+          direction={direccionPanel}
+          onSwipe={(direction) => cambiarPestana(direction === "next" ? "mas" : "cerca")}
+        >
+          {mostrarPanel("mas") ? (
+            <>
+              <section className="card">
+                <h2>Si vas a cocinar esto</h2>
+                <div className="row">{RECETAS.map((recipe) => <button key={recipe.id} className="btn sec" type="button" onClick={() => { let nextText = texto; recipe.items.forEach((name) => { nextText = agregarOSumarProducto(nextText, name); }); setTexto(nextText); notificar("Agregué lo de: " + recipe.nombre + "."); }}>{recipe.nombre}</button>)}</div>
+              </section>
+              <section className="card">
+                <h2>Ofertas que tú viste</h2>
+                <div className="form-grid offer-fields">
+                  <SearchableCombobox
+                    id="oferta-producto"
+                    label="Producto"
+                    value={ofertaProd}
+                    onChange={setOfertaProd}
+                    options={PRODUCTOS.map((product) => ({ value: product.id, label: product.nombre }))}
+                    placeholder="Buscar producto"
+                  />
+                  <SearchableCombobox
+                    id="oferta-tienda"
+                    label="Tienda"
+                    value={ofertaTienda}
+                    onChange={setOfertaTienda}
+                    options={TIENDAS.map((store) => ({ value: store.id, label: store.nombre }))}
+                    placeholder="Buscar tienda"
+                  />
+                  <label className="field-label" htmlFor="oferta-precio">Precio observado
+                    <input id="oferta-precio" type="number" min="1" inputMode="decimal" placeholder="$ 35" value={ofertaPrecio} onChange={(event) => setOfertaPrecio(event.target.value)} />
+                  </label>
+                  <ActionButton className="btn offer-save" status={estadoOferta} successLabel="Oferta guardada" errorLabel="Revisa el precio" onClick={() => {
+                    const price = Number(ofertaPrecio);
+                    if (!price) {
+                      setEstadoOferta("error");
+                      return notificar("Escribe el precio de la oferta.", "error");
+                    }
+                    const next = [{ id: Date.now().toString(), productoId: ofertaProd, tiendaId: ofertaTienda, precio: price }, ...ofertas.filter((offer) => !(offer.productoId === ofertaProd && offer.tiendaId === ofertaTienda))];
+                    setOfertas(next);
+                    save(K.ofertas, next);
+                    setEstadoOferta("success");
+                    notificar("Oferta guardada.");
+                  }}>Guardar oferta</ActionButton>
+                </div>
+                {faltanBasicos.length ? <p className="small">¿Se te ofrece? {faltanBasicos.join(", ")}.</p> : null}
+              </section>
+              <section className="card">
+                <h2>Ajustar lista</h2>
+                <label className="field-label" htmlFor="nombre-lista">Nombre de la lista</label>
+                <input id="nombre-lista" type="text" value={nombreLista} onChange={(event) => setNombreLista(event.target.value)} />
+                <label className="field-label text-area-label" htmlFor="texto-lista">Productos, uno por renglón</label>
+                <textarea id="texto-lista" value={texto} onChange={(event) => setTexto(event.target.value)} />
+                <div className="row">
+                  <ActionButton status={estadoLista} successLabel="Lista guardada" errorLabel="Agrega productos primero" onClick={() => {
+                    if (!items.length) {
+                      setEstadoLista("error");
+                      return notificar("Escribe o sube una lista.", "error");
+                    }
+                    const next = [{ id: Date.now().toString(), nombre: nombreLista, texto, fecha: new Date().toLocaleString("es-MX") }, ...guardadas];
+                    setGuardadas(next);
+                    save(K.listas, next);
+                    setEstadoLista("success");
+                    notificar("Lista guardada.");
+                  }}>Guardar lista</ActionButton>
+                  <button className="btn sec" type="button" aria-expanded={verCatalogo} aria-controls="panel-mas-catalogo" onClick={() => setVerCatalogo((open) => !open)}>{verCatalogo ? "Ocultar catálogo" : "Catálogo"}</button>
+                  <button className="btn sec" type="button" aria-expanded={verTiendas} aria-controls="panel-mas-tiendas" onClick={() => setVerTiendas((open) => !open)}>{verTiendas ? "Ocultar tiendas" : "Mis tiendas"}</button>
+                  <button className="btn sec" type="button" aria-expanded={verQR} aria-controls="panel-mas-qr" onClick={() => setVerQR((open) => !open)}>{verQR ? "Ocultar QR" : "QR"}</button>
+                </div>
+              </section>
+              <CollapsiblePanel id="panel-mas-qr" open={verQR}>
+                <section className="card qr-box" aria-label="Código QR para compartir Despensa MX">
+                  {qr ? <img src={qr} alt="Código QR para abrir Despensa MX en otro dispositivo" /> : <p className="small">Preparando el código QR…</p>}
+                </section>
+              </CollapsiblePanel>
+              <CollapsiblePanel id="panel-mas-catalogo" open={verCatalogo}>
+                <section className="card">
+                  <h2>Catálogo con marca</h2>
+                  <CatalogoGrid marcas={marcas} onPick={(product) => setPicker({ modo: "agregar", producto: product })} />
+                </section>
+              </CollapsiblePanel>
+              <CollapsiblePanel id="panel-mas-tiendas" open={verTiendas}>
+                <section className="card">
+                  <fieldset className="store-filter">
+                    <legend>Tiendas a comparar</legend>
+                    {TIENDAS.map((store) => (
+                      <label key={store.id} className="check-line">
+                        <input type="checkbox" checked={tiendasOn[store.id] !== false} onChange={() => { const next = { ...tiendasOn, [store.id]: tiendasOn[store.id] === false }; setTiendasOn(next); save(K.tiendas, next); }} />
+                        {store.nombre}
+                      </label>
+                    ))}
+                  </fieldset>
+                </section>
+              </CollapsiblePanel>
+              <section className="card"><h2>Privacidad</h2><a className="btn sec" href="/privacidad">Política de privacidad</a></section>
+              <section className="card">
+                <h2>Listas guardadas</h2>
+                {guardadas.length ? guardadas.map((lista) => (
+                  <div className="lista-guardada" key={lista.id}>
+                    <div><b>{lista.nombre}</b><div className="small">{lista.fecha}</div></div>
+                    <div className="row">
+                      <button className="btn sec" type="button" onClick={() => { setNombreLista(lista.nombre); setTexto(lista.texto); notificar(`Abrí ${lista.nombre}.`); }}>Abrir</button>
+                      <button className="btn danger" type="button" aria-label={`Borrar lista ${lista.nombre}`} onClick={() => { const next = guardadas.filter((item) => item.id !== lista.id); setGuardadas(next); save(K.listas, next); notificar(`Borré ${lista.nombre}.`, "info"); }}>Borrar</button>
+                    </div>
+                  </div>
+                )) : <p className="small">Todavía no hay listas guardadas.</p>}
+              </section>
+            </>
+          ) : null}
+        </SwipeTabPanel>
+      </div>
 
       {picker?.producto ? (
-        <SelectorMarca producto={picker.producto} valorInicial={marcas[picker.producto.id] || ""} onElegir={(marca) => { if (picker.modo === "agregar") agregarProducto(picker.producto, marca); else guardarMarca(picker.producto.id, marca); setPicker(null); }} onCerrar={() => setPicker(null)} />
+        <SelectorMarca
+          producto={picker.producto}
+          valorInicial={marcas[picker.producto.id] || ""}
+          onElegir={(marca) => {
+            if (picker.modo === "agregar") agregarProducto(picker.producto, marca);
+            else guardarMarca(picker.producto.id, marca);
+            setPicker(null);
+          }}
+          onCerrar={() => setPicker(null)}
+        />
       ) : null}
 
-      <nav className="tabbar">
-        <button className={"tab" + (pestana === "subir" ? " on" : "")} type="button" onClick={() => setPestana("subir")}>Subir</button>
-        <button className={"tab" + (pestana === "resultado" ? " on" : "")} type="button" onClick={() => setPestana("resultado")}>Resultado</button>
-        <button className={"tab" + (pestana === "lista" ? " on" : "")} type="button" onClick={() => setPestana("lista")}>Lista</button>
-        <button className={"tab" + (pestana === "cerca" ? " on" : "")} type="button" onClick={() => { setPestana("cerca"); if (!cercanos.length) buscarCerca(); }}>Cerca</button>
-        <button className={"tab" + (pestana === "mas" ? " on" : "")} type="button" onClick={() => setPestana("mas")}>Más</button>
-      </nav>
-      <div className={"install" + (showInstall ? " show" : "")}>
+      <TabBar selected={pestana} onSelect={cambiarPestana} />
+      <div className={"install" + (showInstall ? " show" : "")} aria-hidden={!showInstall || undefined}>
         <b>¿La quieres como app?</b>
         <div className="row">
-          <button className="btn" type="button" onClick={async () => { if (!promptInstall) return; promptInstall.prompt(); await promptInstall.userChoice; setPromptInstall(null); setShowInstall(false); }}>Instalar</button>
+          <ActionButton
+            status={estadoInstalar}
+            loadingLabel="Abriendo instalación…"
+            successLabel="Solicitud enviada"
+            errorLabel="Inténtalo de nuevo"
+            disabled={!promptInstall}
+            onClick={instalarApp}
+          >Instalar</ActionButton>
           <button className="btn sec" type="button" onClick={() => setShowInstall(false)}>Ahora no</button>
         </div>
       </div>
