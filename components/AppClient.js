@@ -8,6 +8,7 @@ import { agregarOSumarProducto, borrarLineaEnTexto, cambiarCantidadEnTexto, comp
 import { leerCualquierArchivo } from "../lib/archivos";
 import { comprimirImagen } from "../lib/imagen";
 import { buscarSupersCercanos } from "../lib/geo";
+import { detectarDispositivo } from "../lib/dispositivo";
 import ProductoFoto from "./ProductoFoto";
 import MapaCercanos from "./MapaCercanos";
 import SelectorMarca from "./SelectorMarca";
@@ -112,6 +113,7 @@ export default function AppClient() {
   const [partidaTexto, setPartidaTexto] = useState("");
   const [partidaModo, setPartidaModo] = useState("zona");
   const [esApp, setEsApp] = useState(false);
+  const [dispositivo, setDispositivo] = useState(null);
   const [picker, setPicker] = useState(null);
 
   useEffect(() => {
@@ -129,6 +131,7 @@ export default function AppClient() {
       const pa = load(K.partida); if (pa) { if (pa.texto) setPartidaTexto(pa.texto); if (pa.modo) setPartidaModo(pa.modo); }
       const instalada = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
       setEsApp(!!instalada);
+      setDispositivo(detectarDispositivo());
       if (instalada) setPantalla("app");
       if (localStorage.getItem(K.demo) !== "1") {
         setTexto(DEMO);
@@ -399,6 +402,7 @@ export default function AppClient() {
             onClick={() => fotoRef.current?.click()}
           >Foto de la lista</ActionButton>
           <button className="btn sec home-btn" type="button" onClick={() => irApp("catalogo")}>Ver catálogo</button>
+          <a className="btn sec home-btn" href="/instalar">Instalar la app</a>
           <button className="btn sec home-btn" type="button" onClick={verPrecarga}>Ver ejemplo precargado</button>
         </div>
         {fotoMsg ? <p className="small action-message" role={estadoFoto === "loading" ? "status" : undefined} aria-live={estadoFoto === "loading" ? "polite" : "off"}>{fotoMsg}</p> : null}
@@ -780,7 +784,7 @@ export default function AppClient() {
                   <p className="small">Toca una tienda para incluirla o quitarla de la comparación.</p>
                 </section>
               </CollapsiblePanel>
-              <section className="card"><h2>Privacidad</h2><a className="btn sec" href="/privacidad">Política de privacidad</a></section>
+              <section className="card"><h2>Instalar y privacidad</h2><div className="row"><a className="btn sec" href="/instalar">Instalar la app</a><a className="btn sec" href="/privacidad">Política de privacidad</a></div></section>
               <section className="card">
                 <h2>Listas guardadas</h2>
                 {guardadas.length ? guardadas.map((lista) => (
@@ -808,6 +812,7 @@ export default function AppClient() {
           {mostrarPanel("qr") ? (
             <PanelQR
               url={origen}
+              dispositivo={dispositivo}
               puedeInstalar={!!promptInstall}
               esApp={esApp}
               estadoInstalar={estadoInstalar}
