@@ -27,7 +27,6 @@ import useActionStatus from "./useActionStatus";
 const K = {
   listas: "despensa-mx-listas",
   tiendas: "despensa-mx-tiendas",
-  visto: "despensa-mx-inicio",
   zona: "despensa-mx-zona",
   presu: "despensa-mx-presupuesto",
   hist: "despensa-mx-historial",
@@ -74,7 +73,6 @@ export default function AppClient() {
   const [estadoOferta, setEstadoOferta] = useActionStatus();
   const [estadoLista, setEstadoLista] = useActionStatus();
 
-  const [pantalla, setPantalla] = useState("inicio");
   const [texto, setTexto] = useState("");
   const [nombreLista, setNombreLista] = useState("Despensa semanal");
   const [guardadas, setGuardadas] = useState([]);
@@ -101,7 +99,7 @@ export default function AppClient() {
   const [marcas, setMarcas] = useState({});
   const [avisoDia] = useState(() => avisoDiaCompra());
   const [antojos, setAntojos] = useState({});
-  const [pestana, setPestana] = useState("subir");
+  const [pestana, setPestana] = useState("inicio");
   const [panelAnterior, setPanelAnterior] = useState(null);
   const [direccionPanel, setDireccionPanel] = useState("forward");
   const [cercaMsg, setCercaMsg] = useState("");
@@ -120,7 +118,6 @@ export default function AppClient() {
     try {
       const g = load(K.listas); if (g) setGuardadas(g);
       const t = load(K.tiendas); if (t) setTiendasOn({ ...Object.fromEntries(TIENDAS.map((x) => [x.id, true])), ...t });
-      if (localStorage.getItem(K.visto) === "app") setPantalla("app");
       const z = localStorage.getItem(K.zona); if (z) setZona(z);
       const pr = localStorage.getItem(K.presu); if (pr) setPresupuesto(pr);
       const hi = load(K.hist); if (hi) setHistorial(hi);
@@ -132,11 +129,9 @@ export default function AppClient() {
       const instalada = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
       setEsApp(!!instalada);
       setDispositivo(detectarDispositivo());
-      if (instalada) setPantalla("app");
       if (localStorage.getItem(K.demo) !== "1") {
         setTexto(DEMO);
         setNombreLista("Ejemplo para ver cómo funciona");
-        setPantalla("app");
         setPestana("resultado");
         setDemoActiva(true);
         setAntojos({ "linea-2": true });
@@ -200,16 +195,22 @@ export default function AppClient() {
   }
 
   function irApp(extra) {
-    setPantalla("app");
-    save(K.visto, "app");
     if (extra === "archivo") {
       cambiarPestana("subir");
       setTimeout(() => fileRef.current?.click(), 200);
+      return;
+    }
+    if (extra === "foto") {
+      cambiarPestana("subir");
+      setTimeout(() => fotoRef.current?.click(), 200);
+      return;
     }
     if (extra === "catalogo") {
       setVerCatalogo(true);
       cambiarPestana("lista");
+      return;
     }
+    cambiarPestana("subir");
   }
 
   function quitarPrecarga() {
@@ -229,7 +230,6 @@ export default function AppClient() {
   function verPrecarga() {
     setTexto(DEMO);
     setNombreLista("Ejemplo para ver cómo funciona");
-    setPantalla("app");
     cambiarPestana("resultado");
     setDemoActiva(true);
     setAntojos({ "linea-2": true });
@@ -261,15 +261,12 @@ export default function AppClient() {
       setTexto(content);
       setNombreLista(file.name.replace(/\.[^.]+$/, ""));
       setMarcados({});
-      setPantalla("app");
-      save(K.visto, "app");
       notificar((aviso || "Archivo listo.") + " Abajo está la tienda más barata.");
       setEstadoArchivo("success");
       setTimeout(() => cambiarPestana("resultado"), 80);
     } catch (err) {
       const error = err.message || "No pude leer ese archivo.";
       notificar(error, "error");
-      setPantalla("app");
       setEstadoArchivo("error");
     } finally {
       fileLockRef.current = false;
@@ -348,8 +345,6 @@ export default function AppClient() {
       }
 
       setTexto(data.texto);
-      setPantalla("app");
-      save(K.visto, "app");
       setFotoMsg("");
       notificar("Foto leída. Revisa la lista y el resultado.");
       setEstadoFoto("success");
@@ -382,59 +377,11 @@ export default function AppClient() {
 
   const mostrarPanel = (id) => pestana === id || panelAnterior === id;
 
-  if (pantalla === "inicio") {
-    return (
-      <div className="wrap">
-        <section className="hero">
-          <h1>Despensa MX</h1>
-          <p>Sube tu lista. En segundos te digo en qué súper del Valle de México sale más barato comprar todo junto.</p>
-        </section>
-        <FeedbackMessage message={mensaje} type={mensajeTipo} />
-        <div className="home-actions">
-          <button className="btn home-btn" type="button" onClick={() => irApp("archivo")}>Subir archivo de despensa</button>
-          <button className="btn sec home-btn" type="button" onClick={() => irApp()}>Escribir la lista a mano</button>
-          <ActionButton
-            className="btn sec home-btn"
-            status={estadoFoto}
-            loadingLabel="Leyendo foto…"
-            successLabel="Foto leída"
-            errorLabel="Reintentar foto"
-            onClick={() => fotoRef.current?.click()}
-          >Foto de la lista</ActionButton>
-          <button className="btn sec home-btn" type="button" onClick={() => irApp("catalogo")}>Ver catálogo</button>
-          <a className="btn sec home-btn" href="/instalar">Instalar la app</a>
-          <button className="btn sec home-btn" type="button" onClick={verPrecarga}>Ver ejemplo precargado</button>
-        </div>
-        {fotoMsg ? <p className="small action-message" role={estadoFoto === "loading" ? "status" : undefined} aria-live={estadoFoto === "loading" ? "polite" : "off"}>{fotoMsg}</p> : null}
-        <p className="hint">Precios de referencia para CDMX y zona conurbada.</p>
-        <input
-          ref={fileRef}
-          type="file"
-          hidden
-          aria-label="Seleccionar archivo .txt o .csv de despensa"
-          disabled={estadoArchivo === "loading"}
-          onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; procesarArchivo(file); }}
-        />
-        <input
-          ref={fotoRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          hidden
-          aria-label="Seleccionar o tomar una foto de la lista"
-          disabled={estadoFoto === "loading"}
-          onChange={leerFoto}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className={"wrap compacto" + (esApp ? " app-mode" : "")}>
       <section className="hero mini">
         <div><h1>Despensa MX</h1><p>Todo junto, en la tienda más barata.</p></div>
         <div className="row">
-          <button className="btn sec" type="button" onClick={() => setPantalla("inicio")}>Inicio</button>
           {demoActiva ? <button className="btn danger" type="button" onClick={quitarPrecarga}>Quitar precarga</button> : <button className="btn sec" type="button" onClick={verPrecarga}>Ver ejemplo</button>}
         </div>
       </section>
@@ -445,12 +392,44 @@ export default function AppClient() {
 
       <div className="tab-panels">
         <SwipeTabPanel
+          id="inicio"
+          labelledBy="tab-inicio"
+          active={pestana === "inicio"}
+          exiting={panelAnterior === "inicio" && pestana !== "inicio"}
+          direction={direccionPanel}
+          onSwipe={(direction) => cambiarPestana(direction === "next" ? "subir" : "inicio")}
+        >
+          {mostrarPanel("inicio") ? (
+            <section className="card">
+              <h2>Empieza aquí</h2>
+              <p className="small">Sube tu lista. En segundos te digo en qué súper del Valle de México sale más barato comprar todo junto.</p>
+              <div className="home-actions">
+                <button className="btn home-btn" type="button" onClick={() => irApp("archivo")}>Subir archivo de despensa</button>
+                <button className="btn sec home-btn" type="button" onClick={() => irApp()}>Escribir la lista a mano</button>
+                <ActionButton
+                  className="btn sec home-btn"
+                  status={estadoFoto}
+                  loadingLabel="Leyendo foto…"
+                  successLabel="Foto leída"
+                  errorLabel="Reintentar foto"
+                  onClick={() => irApp("foto")}
+                >Foto de la lista</ActionButton>
+                <button className="btn sec home-btn" type="button" onClick={() => irApp("catalogo")}>Ver catálogo</button>
+                <a className="btn sec home-btn" href="/instalar">Instalar la app</a>
+                <button className="btn sec home-btn" type="button" onClick={verPrecarga}>Ver ejemplo precargado</button>
+              </div>
+              <p className="hint">Precios de referencia para CDMX y zona conurbada.</p>
+            </section>
+          ) : null}
+        </SwipeTabPanel>
+
+        <SwipeTabPanel
           id="subir"
           labelledBy="tab-subir"
           active={pestana === "subir"}
           exiting={panelAnterior === "subir" && pestana !== "subir"}
           direction={direccionPanel}
-          onSwipe={(direction) => cambiarPestana(direction === "next" ? "resultado" : "subir")}
+          onSwipe={(direction) => cambiarPestana(direction === "next" ? "resultado" : "inicio")}
         >
           {mostrarPanel("subir") ? (
             <section className="card">

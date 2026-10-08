@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ScrollRail from "./ScrollRail";
 
 export const APP_TABS = [
+  { id: "inicio", label: "Inicio" },
   { id: "subir", label: "Subir" },
   { id: "resultado", label: "Resultado" },
   { id: "lista", label: "Lista" },
