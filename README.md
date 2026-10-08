@@ -10,8 +10,15 @@ Esta app **no** lee precios en vivo de Walmart, Soriana o Chedraui. Usa un catá
 
 - Subir .txt o .csv (en Excel: Archivo → Guardar como → CSV); foto de la lista (opcional, con key de Gemini/Groq)
 - Producto + marca (catálogo local y Open Food Facts)
-- Una sola barra de pestañas (abajo): Subir, Resultado, Lista, Cerca, Más
+- Una sola barra de pestañas (abajo): Subir, Resultado, Lista, Cerca, Más, QR
+- Se instala como app en celular, iPad y computadora (sin tiendas de apps)
 - Catálogo en Lista y en Más
+- Pestaña QR pensada para **instalar** la app: el código apunta a /instalar, se
+  descarga en PNG, se copia o se comparte, y da los pasos según el dispositivo
+  (iPad y iPhone con Safari, Android con Chrome, computadora con Chrome/Edge/Safari)
+- Página /instalar: detecta el dispositivo, ofrece el botón de instalación cuando el
+  navegador lo permite y muestra el QR para pasarla a otro equipo
+- Iconos PNG (180/192/512 y maskable) para que se pueda instalar en iPad y Android
 - Ranking, ahorro, ticket, antojos aparte del presupuesto
 - Mapa con geolocalización (OpenStreetMap + Overpass, con caché)
 - Caché en service worker e IndexedDB (índices tipo y expira)
@@ -32,7 +39,9 @@ Sin key ni registro:
 - Open Food Facts (github.com/openfoodfacts/openfoodfacts-server) — marcas
 - Overpass / OSM — súpers cerca
 - Leaflet (github.com/Leaflet/Leaflet) — mapa
-- QR Server — código para instalar
+
+El código QR ya no se pide a ningún servicio: se genera en el propio dispositivo
+(lib/qr.js, sin dependencias), así que también sale sin internet.
 
 ## Índices
 

@@ -1,5 +1,5 @@
 const CACHE = "despensa-mx-v2";
-const PRECACHE = ["/", "/manifest.json", "/privacidad"];
+const PRECACHE = ["/", "/instalar", "/manifest.json", "/privacidad", "/icon-192.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(PRECACHE)));
