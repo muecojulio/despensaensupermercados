@@ -16,6 +16,7 @@ import ActionButton from "./ActionButton";
 import SearchableCombobox from "./SearchableCombobox";
 import TabBar, { APP_TABS } from "./TabBar";
 import SwipeTabPanel from "./SwipeTabPanel";
+import PanelQR from "./PanelQR";
 import CollapsiblePanel from "./CollapsiblePanel";
 import Switch from "./Switch";
 import ChipRail from "./ChipRail";
@@ -84,7 +85,6 @@ export default function AppClient() {
   const [arrastrando, setArrastrando] = useState(false);
   const [verCatalogo, setVerCatalogo] = useState(false);
   const [verTiendas, setVerTiendas] = useState(false);
-  const [verQR, setVerQR] = useState(false);
   const [marcados, setMarcados] = useState({});
   const [tiendasOn, setTiendasOn] = useState(() => Object.fromEntries(TIENDAS.map((t) => [t.id, true])));
   const [zona, setZona] = useState("Coyoacán");
@@ -163,7 +163,6 @@ export default function AppClient() {
   const tope = Number(presupuesto) || 0;
   const baseGanadora = ganadora?.totalBase ?? ganadora?.total ?? 0;
   const antojoGanadora = ganadora?.totalAntojo ?? 0;
-  const qr = origen ? "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" + encodeURIComponent(origen) : "";
   const hechos = items.filter((it) => marcados[it.id]).length;
   const faltanBasicos = BASICOS.filter((b) => !items.some((it) => it.nombre.toLowerCase().includes(b.split(" ")[0])));
 
@@ -695,7 +694,7 @@ export default function AppClient() {
           active={pestana === "mas"}
           exiting={panelAnterior === "mas" && pestana !== "mas"}
           direction={direccionPanel}
-          onSwipe={(direction) => cambiarPestana(direction === "next" ? "mas" : "cerca")}
+          onSwipe={(direction) => cambiarPestana(direction === "next" ? "qr" : "cerca")}
         >
           {mostrarPanel("mas") ? (
             <>
@@ -760,14 +759,9 @@ export default function AppClient() {
                   }}>Guardar lista</ActionButton>
                   <button className="btn sec" type="button" aria-expanded={verCatalogo} aria-controls="panel-mas-catalogo" onClick={() => setVerCatalogo((open) => !open)}>{verCatalogo ? "Ocultar catálogo" : "Catálogo"}</button>
                   <button className="btn sec" type="button" aria-expanded={verTiendas} aria-controls="panel-mas-tiendas" onClick={() => setVerTiendas((open) => !open)}>{verTiendas ? "Ocultar tiendas" : "Mis tiendas"}</button>
-                  <button className="btn sec" type="button" aria-expanded={verQR} aria-controls="panel-mas-qr" onClick={() => setVerQR((open) => !open)}>{verQR ? "Ocultar QR" : "QR"}</button>
+                  <button className="btn sec" type="button" aria-controls="panel-qr" onClick={() => cambiarPestana("qr")}>Código QR</button>
                 </div>
               </section>
-              <CollapsiblePanel id="panel-mas-qr" open={verQR}>
-                <section className="card qr-box" aria-label="Código QR para compartir Despensa MX">
-                  {qr ? <img src={qr} alt="Código QR para abrir Despensa MX en otro dispositivo" /> : <p className="small">Preparando el código QR…</p>}
-                </section>
-              </CollapsiblePanel>
               <CollapsiblePanel id="panel-mas-catalogo" open={verCatalogo}>
                 <section className="card">
                   <h2>Catálogo con marca</h2>
@@ -800,6 +794,26 @@ export default function AppClient() {
                 )) : <p className="small">Todavía no hay listas guardadas.</p>}
               </section>
             </>
+          ) : null}
+        </SwipeTabPanel>
+
+        <SwipeTabPanel
+          id="qr"
+          labelledBy="tab-qr"
+          active={pestana === "qr"}
+          exiting={panelAnterior === "qr" && pestana !== "qr"}
+          direction={direccionPanel}
+          onSwipe={(direction) => cambiarPestana(direction === "next" ? "qr" : "mas")}
+        >
+          {mostrarPanel("qr") ? (
+            <PanelQR
+              url={origen}
+              puedeInstalar={!!promptInstall}
+              esApp={esApp}
+              estadoInstalar={estadoInstalar}
+              onInstalar={instalarApp}
+              onAviso={notificar}
+            />
           ) : null}
         </SwipeTabPanel>
       </div>

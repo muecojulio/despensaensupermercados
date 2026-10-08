@@ -9,6 +9,7 @@ export const APP_TABS = [
   { id: "lista", label: "Lista" },
   { id: "cerca", label: "Cerca" },
   { id: "mas", label: "Más" },
+  { id: "qr", label: "QR" },
 ];
 
 export default function TabBar({ selected, onSelect }) {
