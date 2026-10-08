@@ -17,6 +17,9 @@ import SearchableCombobox from "./SearchableCombobox";
 import TabBar, { APP_TABS } from "./TabBar";
 import SwipeTabPanel from "./SwipeTabPanel";
 import CollapsiblePanel from "./CollapsiblePanel";
+import Switch from "./Switch";
+import ChipRail from "./ChipRail";
+import SwipeRevealCard from "./SwipeRevealCard";
 import useActionStatus from "./useActionStatus";
 
 const K = {
@@ -586,34 +589,50 @@ export default function AppClient() {
                   const cat = producto?.categoria || "despensa";
                   const estaMarcado = !!marcados[item.id];
                   return (
-                    <div className={"item-card" + (estaMarcado ? " hecho" : "") + (antojos[item.id] ? " antojo" : "")} key={item.id} style={{ background: antojos[item.id] ? "#ffe8f0" : COLORES[cat] }}>
-                      <label className="check">
-                        <input
-                          type="checkbox"
-                          checked={estaMarcado}
-                          aria-label={`${estaMarcado ? "Marcar como pendiente" : "Marcar como comprado"}: ${item.nombre}`}
-                          onChange={() => setMarcados((current) => ({ ...current, [item.id]: !current[item.id] }))}
-                        />
-                      </label>
-                      <button type="button" className="foto-tap" aria-label={`Cambiar marca de ${item.nombre}`} onClick={() => producto && setPicker({ modo: "linea", producto })}>
-                        <ProductoFoto producto={producto} />
-                      </button>
-                      <div className="item-info">
-                        <button type="button" className="nombre-tap" onClick={() => producto && setPicker({ modo: "linea", producto })}>
-                          <b>{producto ? producto.nombre : item.nombre}</b>
+                    <SwipeRevealCard
+                      key={item.id}
+                      nombre={producto ? producto.nombre : item.nombre}
+                      onQuitar={() => setTexto((previous) => borrarLineaEnTexto(previous, indice))}
+                    >
+                      <div className={"item-card" + (estaMarcado ? " hecho" : "") + (antojos[item.id] ? " antojo" : "")} style={{ background: antojos[item.id] ? "#ffe8f0" : COLORES[cat] }}>
+                        <label className="check">
+                          <input
+                            type="checkbox"
+                            checked={estaMarcado}
+                            aria-label={`${estaMarcado ? "Marcar como pendiente" : "Marcar como comprado"}: ${item.nombre}`}
+                            onChange={() => setMarcados((current) => ({ ...current, [item.id]: !current[item.id] }))}
+                          />
+                        </label>
+                        <button type="button" className="foto-tap" aria-label={`Cambiar marca de ${item.nombre}`} onClick={() => producto && setPicker({ modo: "linea", producto })}>
+                          <ProductoFoto producto={producto} />
                         </button>
-                        <div className="small">{NOMBRE_PASILLO[cat] || "Otros"} · {item.cantidad}{marcas[producto?.id] ? " · Marca: " + marcas[producto.id] : ""}</div>
-                        {producto && SUSTITUTOS[producto.id] ? <div className="small">{SUSTITUTOS[producto.id]}</div> : null}
-                        <label className="small check-label"><input type="checkbox" checked={!!alacena[item.id]} onChange={() => { const next = { ...alacena, [item.id]: !alacena[item.id] }; setAlacena(next); save(K.alacena, next); }} /> Ya está en casa</label>
-                        <label className="small check-label"><input type="checkbox" checked={!!antojos[item.id]} onChange={() => { const next = { ...antojos, [item.id]: !antojos[item.id] }; setAntojos(next); save(K.antojo, next); }} /> Antojo</label>
+                        <div className="item-info">
+                          <button type="button" className="nombre-tap" onClick={() => producto && setPicker({ modo: "linea", producto })}>
+                            <b>{producto ? producto.nombre : item.nombre}</b>
+                          </button>
+                          <div className="small">{NOMBRE_PASILLO[cat] || "Otros"} · {item.cantidad}{marcas[producto?.id] ? " · Marca: " + marcas[producto.id] : ""}</div>
+                          {producto && SUSTITUTOS[producto.id] ? <div className="small">{SUSTITUTOS[producto.id]}</div> : null}
+                          <Switch
+                            id={`alacena-${item.id}`}
+                            label="Ya está en casa"
+                            checked={!!alacena[item.id]}
+                            onChange={(value) => { const next = { ...alacena, [item.id]: value }; setAlacena(next); save(K.alacena, next); }}
+                          />
+                          <Switch
+                            id={`antojo-${item.id}`}
+                            label="Antojo"
+                            checked={!!antojos[item.id]}
+                            onChange={(value) => { const next = { ...antojos, [item.id]: value }; setAntojos(next); save(K.antojo, next); }}
+                          />
+                        </div>
+                        <div className="qty">
+                          <button type="button" aria-label={`Disminuir cantidad de ${item.nombre}`} onClick={() => setTexto((previous) => cambiarCantidadEnTexto(previous, indice, Math.max(1, item.cantidad - 1)))}>−</button>
+                          <input type="number" min="1" inputMode="numeric" aria-label={`Cantidad de ${item.nombre}`} value={item.cantidad} onChange={(event) => setTexto((previous) => cambiarCantidadEnTexto(previous, indice, Math.max(1, Number(event.target.value) || 1)))} />
+                          <button type="button" aria-label={`Aumentar cantidad de ${item.nombre}`} onClick={() => setTexto((previous) => cambiarCantidadEnTexto(previous, indice, item.cantidad + 1))}>+</button>
+                        </div>
+                        <button className="btn-x" type="button" aria-label={`Quitar ${item.nombre} de la lista`} onClick={() => setTexto((previous) => borrarLineaEnTexto(previous, indice))}>✕</button>
                       </div>
-                      <div className="qty">
-                        <button type="button" aria-label={`Disminuir cantidad de ${item.nombre}`} onClick={() => setTexto((previous) => cambiarCantidadEnTexto(previous, indice, Math.max(1, item.cantidad - 1)))}>−</button>
-                        <input type="number" min="1" inputMode="numeric" aria-label={`Cantidad de ${item.nombre}`} value={item.cantidad} onChange={(event) => setTexto((previous) => cambiarCantidadEnTexto(previous, indice, Math.max(1, Number(event.target.value) || 1)))} />
-                        <button type="button" aria-label={`Aumentar cantidad de ${item.nombre}`} onClick={() => setTexto((previous) => cambiarCantidadEnTexto(previous, indice, item.cantidad + 1))}>+</button>
-                      </div>
-                      <button className="btn-x" type="button" aria-label={`Quitar ${item.nombre} de la lista`} onClick={() => setTexto((previous) => borrarLineaEnTexto(previous, indice))}>✕</button>
-                    </div>
+                    </SwipeRevealCard>
                   );
                 })}
               </section>
@@ -757,15 +776,14 @@ export default function AppClient() {
               </CollapsiblePanel>
               <CollapsiblePanel id="panel-mas-tiendas" open={verTiendas}>
                 <section className="card">
-                  <fieldset className="store-filter">
-                    <legend>Tiendas a comparar</legend>
-                    {TIENDAS.map((store) => (
-                      <label key={store.id} className="check-line">
-                        <input type="checkbox" checked={tiendasOn[store.id] !== false} onChange={() => { const next = { ...tiendasOn, [store.id]: tiendasOn[store.id] === false }; setTiendasOn(next); save(K.tiendas, next); }} />
-                        {store.nombre}
-                      </label>
-                    ))}
-                  </fieldset>
+                  <h2>Tiendas a comparar</h2>
+                  <ChipRail
+                    label="Tiendas a comparar"
+                    options={TIENDAS.map((store) => ({ id: store.id, label: store.nombre }))}
+                    selected={tiendasOn}
+                    onToggle={(id) => { const next = { ...tiendasOn, [id]: tiendasOn[id] === false }; setTiendasOn(next); save(K.tiendas, next); }}
+                  />
+                  <p className="small">Toca una tienda para incluirla o quitarla de la comparación.</p>
                 </section>
               </CollapsiblePanel>
               <section className="card"><h2>Privacidad</h2><a className="btn sec" href="/privacidad">Política de privacidad</a></section>

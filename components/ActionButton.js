@@ -40,6 +40,8 @@ export default function ActionButton({
       {status === "success" ? <span className="action-status-icon" aria-hidden="true">✓</span> : null}
       {status === "error" ? <span className="action-status-icon" aria-hidden="true">!</span> : null}
       <span>{label}</span>
+      {/* Mensaje de estado para lectores de pantalla: loading/éxito/error. */}
+      <span className="sr-only" role="status">{status === "idle" || status === "disabled" ? "" : label}</span>
     </button>
   );
 }

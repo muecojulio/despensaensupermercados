@@ -76,5 +76,12 @@ export default function MapaCercanos({ yo, lugares, puntos }) {
   }, [yo, lugares]);
 
   if (!yo) return null;
-  return <div ref={caja} className="mapa" />;
+  return (
+    <div
+      ref={caja}
+      className="mapa"
+      role="region"
+      aria-label="Mapa con los súpers más cercanos a tu ubicación"
+    />
+  );
 }
