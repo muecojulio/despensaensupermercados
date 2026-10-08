@@ -234,6 +234,12 @@ export default function SearchableCombobox({
           </p>
         ) : null}
       </div>
+      {/* Anuncia cuántas opciones hay mientras se escribe (estado + resultados). */}
+      <span className="sr-only" role="status" aria-live="polite">
+        {open
+          ? `${filteredOptions.length} ${filteredOptions.length === 1 ? "coincidencia" : "coincidencias"}`
+          : ""}
+      </span>
     </div>
   );
 }

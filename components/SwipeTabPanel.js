@@ -18,6 +18,7 @@ const NON_SWIPE_TARGETS = [
   "[role='option']",
   "[contenteditable='true']",
   "[data-no-tab-swipe]",
+  "[data-swipe-card]",
   ".scroll-rail__viewport",
   ".combobox-popover",
   ".mapa",

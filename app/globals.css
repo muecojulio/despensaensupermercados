@@ -24,6 +24,9 @@ html, body {
   color: var(--ink);
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   letter-spacing: -0.01em;
+  /* Los carruseles gestionan su propio scroll horizontal; la página nunca debe
+     generar scroll horizontal global. clip no crea un contenedor de scroll. */
+  overflow-x: clip;
 }
 html { scroll-behavior: smooth; }
 body {
@@ -143,9 +146,18 @@ input[type="checkbox"] { width: 22px; height: 22px; flex: 0 0 auto; accent-color
 .btn[aria-busy="true"] { cursor: progress; }
 .action-success { background-color: #0b6144; }
 .btn.sec.action-success { background: #d8f0e2; color: #124d37; border-color: #acd7be; }
-.action-error { border-color: #a93434; box-shadow: inset 0 0 0 1px #a93434; }
+.action-error { border-color: #a93434; box-shadow: inset 0 0 0 1px #a93434; animation: nudge-x 300ms ease; }
+.btn.action-error { background-color: #8f2424; border-color: #a93434; }
 .btn.sec.action-error { background: #fff0f0; color: #781f1f; }
 .action-disabled { filter: grayscale(0.2); }
+/* Vibración visual muy discreta para el estado de error (sin depender solo del color). */
+@keyframes nudge-x {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
 .action-spinner {
   display: inline-block;
   width: 1em;
@@ -255,7 +267,37 @@ input[type="checkbox"] { width: 22px; height: 22px; flex: 0 0 auto; accent-color
 .qty button { width: 44px; height: 44px; flex: 0 0 44px; border: 1px solid #d4e7db; border-radius: 12px; background: #e8f6ee; color: #146044; font-size: 1.2rem; font-weight: 700; cursor: pointer; transition: transform var(--motion-fast) ease, background-color var(--motion-fast) ease; }
 .qty input { width: 48px; min-width: 44px; height: 44px; min-height: 44px; padding: 0 4px; border: 1px solid var(--line); border-radius: 12px; text-align: center; background: white; }
 .btn-x { grid-area: remove; align-self: start; min-width: 44px; min-height: 44px; border: 0; border-radius: 12px; background: transparent; color: var(--danger); font-size: 1.05rem; cursor: pointer; }
-.check-label { display: flex; align-items: center; gap: 8px; margin: 7px 0 0; font-size: 0.82rem; }
+/* Interruptores (role="switch"): nombre + estado anunciados, pastilla animada. */
+.switch-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; margin: 7px 0 0; font-size: 0.82rem; color: var(--ink); }
+.switch-text { min-width: 0; }
+.switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 46px;
+  min-width: 46px;
+  height: 26px;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid #b9cec2;
+  border-radius: 999px;
+  background: #d7e3db;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease;
+}
+.switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(18, 33, 27, 0.28);
+  transition: transform var(--motion-standard) cubic-bezier(0.2, 0.7, 0.25, 1);
+}
+.switch[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+.switch[aria-checked="true"] .switch-thumb { transform: translateX(20px); }
+.switch:disabled { opacity: 0.62; cursor: not-allowed; }
 .hecho { border-color: #c5d4ca; }
 .hecho b { text-decoration: line-through; text-decoration-thickness: 1px; }
 .precio.grande { font-size: 1.6rem; margin: 4px 0 10px; }
@@ -384,6 +426,10 @@ input[type="checkbox"] { width: 22px; height: 22px; flex: 0 0 auto; accent-color
   border-radius: 12px;
   background: #0e6b4c;
   pointer-events: none;
+  /* Sin transición hasta la primera medición: la píldora aparece ya colocada. */
+  transition: none;
+}
+.tab-indicator.is-ready {
   transition: transform 220ms cubic-bezier(0.2, 0.75, 0.25, 1), width 220ms cubic-bezier(0.2, 0.75, 0.25, 1);
 }
 .tab-panels { position: relative; min-width: 0; }
@@ -478,11 +524,51 @@ input[type="checkbox"] { width: 22px; height: 22px; flex: 0 0 auto; accent-color
 .collapse-panel__inner { min-height: 0; overflow: hidden; }
 .collapse-panel__inner > :last-child { margin-bottom: 14px; }
 .collapse-panel:not(.is-open) { pointer-events: none; }
-.store-filter { min-width: 0; margin: 0; padding: 0; border: 0; }
-.store-filter legend { margin-bottom: 8px; font-weight: 750; }
-.check-line { display: flex; align-items: center; gap: 9px; min-height: 44px; margin: 0; padding: 7px 0; border-bottom: 1px solid var(--line); color: var(--ink); }
-.check-line:last-child { border-bottom: 0; }
-.check-line input { margin: 0; }
+
+/* Tarjeta con acciones reveladas por swipe horizontal (táctil). */
+.swipe-card { position: relative; overflow: hidden; border-radius: 16px; margin-bottom: 8px; touch-action: pan-y; }
+.swipe-card .item-card { margin-bottom: 0; }
+.swipe-card__content {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  transition: transform var(--motion-standard) cubic-bezier(0.2, 0.7, 0.25, 1);
+}
+.swipe-card.is-dragging .swipe-card__content { transition: none; }
+.swipe-card__actions { position: absolute; z-index: 0; top: 0; right: 0; bottom: 0; display: flex; width: 92px; }
+.swipe-action {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  border-left: 1px solid #f2cdcd;
+  background: #fdecec;
+  color: var(--danger);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.swipe-action:active { background: #fbd9d9; }
+
+/* Mapa (Leaflet necesita altura explícita) y resumen del ganador. */
+.mapa {
+  position: relative;
+  z-index: 0;
+  width: 100%;
+  height: 300px;
+  min-height: 240px;
+  margin: 12px 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #e8f0ea;
+}
+.resumen { display: grid; gap: 2px; margin: 0 0 10px; font-size: 0.9rem; color: var(--muted); }
 
 .app-feedback-placeholder { min-height: 0; }
 .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
@@ -496,12 +582,16 @@ input[type="checkbox"] { width: 22px; height: 22px; flex: 0 0 auto; accent-color
   .chip:hover:not(:disabled), .chip-prod:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 5px 12px rgba(28, 50, 34, 0.09); }
   .foto-tap:hover, .nombre-tap:hover { color: var(--accent); }
   .qty button:hover { background: #d8eee1; }
+  .switch:hover:not(:disabled) { border-color: #9db8aa; }
+  .switch[aria-checked="true"]:hover:not(:disabled) { background: #0b5c40; }
 }
 .btn:active:not(:disabled), .tab:active:not(:disabled), .chip:active:not(:disabled),
 .chip-prod:active:not(:disabled), .qty button:active:not(:disabled), .btn-x:active:not(:disabled) {
   transform: translateY(1px) scale(0.975);
   box-shadow: none;
 }
+/* Feedback de pulsación breve también en toques transparentes y el toggle del combobox. */
+.foto-tap:active, .nombre-tap:active, .combobox-toggle:active { transform: scale(0.97); }
 
 @media (min-width: 720px) {
   .product-rail__viewport { overflow: visible; padding: 0; scroll-snap-type: none; }

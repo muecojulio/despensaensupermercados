@@ -14,11 +14,13 @@ export const APP_TABS = [
 export default function TabBar({ selected, onSelect }) {
   const buttonsRef = useRef({});
   const [indicator, setIndicator] = useState({ x: 0, width: 0 });
+  const [indicatorReady, setIndicatorReady] = useState(false);
 
   const updateIndicator = useCallback(() => {
     const button = buttonsRef.current[selected];
     if (!button) return;
     setIndicator({ x: button.offsetLeft, width: button.offsetWidth });
+    setIndicatorReady(true);
   }, [selected]);
 
   useEffect(() => {
@@ -69,7 +71,7 @@ export default function TabBar({ selected, onSelect }) {
       viewportClassName="tabbar"
     >
       <span
-        className="tab-indicator"
+        className={"tab-indicator" + (indicatorReady ? " is-ready" : "")}
         aria-hidden="true"
         style={{ width: `${indicator.width}px`, transform: `translateX(${indicator.x}px)` }}
       />
