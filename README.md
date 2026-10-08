@@ -10,7 +10,9 @@ Esta app **no** lee precios en vivo de Walmart, Soriana o Chedraui. Usa un catá
 
 - Subir .txt o .csv (en Excel: Archivo → Guardar como → CSV); foto de la lista (opcional, con key de Gemini/Groq)
 - Producto + marca (catálogo local y Open Food Facts)
-- Una sola barra de pestañas (abajo): Subir, Resultado, Lista, Cerca, Más, QR
+- Una sola barra de pestañas (abajo): Inicio, Subir, Resultado, Lista, Cerca, Más, QR
+  (las opciones de arranque —archivo, foto, catálogo, ejemplo— viven en la
+  pestaña Inicio, ya no hay botón de inicio en el encabezado)
 - Se instala como app en celular, iPad y computadora (sin tiendas de apps)
 - Catálogo en Lista y en Más
 - Pestaña QR pensada para **instalar** la app: el código apunta a /instalar, se
