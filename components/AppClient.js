@@ -65,6 +65,7 @@ export default function AppClient() {
   const fileLockRef = useRef(false);
   const fotoLockRef = useRef(false);
   const cercaLockRef = useRef(false);
+  const cercaConsultadaRef = useRef(false);
   const panelTimerRef = useRef(null);
   const [estadoArchivo, setEstadoArchivo] = useActionStatus();
   const [estadoFoto, setEstadoFoto] = useActionStatus();
@@ -105,6 +106,7 @@ export default function AppClient() {
   const [cercaMsg, setCercaMsg] = useState("");
   const [cercaMsgTipo, setCercaMsgTipo] = useState("info");
   const [cercanos, setCercanos] = useState([]);
+  const [radioCerca, setRadioCerca] = useState(3000);
   const [miUbicacion, setMiUbicacion] = useState(null);
   const [sucursal, setSucursal] = useState(null);
   const [demoActiva, setDemoActiva] = useState(false);
@@ -191,7 +193,7 @@ export default function AppClient() {
       setPestana(siguiente);
     }
 
-    if (siguiente === "cerca" && !cercanos.length && !cercaLockRef.current) buscarCerca();
+    if (siguiente === "cerca" && !cercaConsultadaRef.current && !cercaLockRef.current) buscarCerca(3000);
   }
 
   function irApp(extra) {
@@ -282,39 +284,66 @@ export default function AppClient() {
   const mapaUrl = (n) => "https://www.google.com/maps/dir/?api=1&origin=" + encodeURIComponent(origenMaps()) + "&destination=" + encodeURIComponent(n + " " + zona + " México");
   const rumboUrl = (lat, lon) => "https://www.google.com/maps/dir/?api=1&origin=" + encodeURIComponent(origenMaps()) + "&destination=" + lat + "," + lon;
 
-  function buscarCerca() {
-    if (cercaLockRef.current) return;
-    if (!navigator.geolocation) {
-      setCercaMsg("Este celular no da ubicación.");
+  async function consultarCerca(lat, lon, radioM) {
+    setMiUbicacion({ lat, lon });
+    try {
+      const lista = await buscarSupersCercanos(lat, lon, radioM);
+      setCercanos(lista);
+      cercaConsultadaRef.current = true;
+      const radioKm = radioM / 1000;
+      if (lista.length) {
+        setCercaMsg(`Encontré ${lista.length} ${lista.length === 1 ? "súper" : "súpers"} en un radio de ${radioKm} km:`);
+        setCercaMsgTipo("success");
+      } else {
+        const sugerencia = radioM < 10000
+          ? "Puede faltar información en el mapa; prueba ampliando a 10 km."
+          : "Puede faltar información de comercios en el mapa.";
+        setCercaMsg(`OpenStreetMap no reporta súpers en un radio de ${radioKm} km. ${sugerencia}`);
+        setCercaMsgTipo("info");
+      }
+      setEstadoCerca("success");
+    } catch (err) {
+      setCercanos([]);
+      setCercaMsg(err.message || "No pude confirmar si hay súpers cerca. Intenta de nuevo.");
       setCercaMsgTipo("error");
       setEstadoCerca("error");
-      return;
+    } finally {
+      cercaLockRef.current = false;
     }
+  }
 
+  function buscarCerca(radioM = 3000) {
+    if (cercaLockRef.current) return;
     cercaLockRef.current = true;
-    setCercaMsg("Pidiendo tu ubicación…");
+    setRadioCerca(radioM);
+    setCercanos([]);
+    setCercaMsg(miUbicacion
+      ? `Buscando súpers en un radio de ${radioM / 1000} km…`
+      : "Pidiendo tu ubicación y buscando súpers…");
     setCercaMsgTipo("info");
     setEstadoCerca("loading");
 
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
-      setMiUbicacion({ lat, lon });
-      try {
-        const lista = await buscarSupersCercanos(lat, lon);
-        setCercanos(lista);
-        setCercaMsg(lista.length ? "Estos te quedan más cerca:" : "No encontré súpers cerca.");
-        setCercaMsgTipo(lista.length ? "success" : "info");
-        setEstadoCerca("success");
-      } catch (err) {
-        setCercaMsg(err.message || "No pude buscar ahora.");
-        setCercaMsgTipo("error");
-        setEstadoCerca("error");
-      } finally {
-        cercaLockRef.current = false;
-      }
-    }, () => {
-      setCercaMsg("No autorizaste la ubicación.");
+    if (miUbicacion) {
+      consultarCerca(miUbicacion.lat, miUbicacion.lon, radioM);
+      return;
+    }
+    if (!navigator.geolocation) {
+      setCercaMsg("Este dispositivo no permite obtener la ubicación.");
+      setCercaMsgTipo("error");
+      setEstadoCerca("error");
+      cercaLockRef.current = false;
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition((pos) => {
+      consultarCerca(pos.coords.latitude, pos.coords.longitude, radioM);
+    }, (error) => {
+      const mensajeUbicacion = error.code === 1
+        ? "No autorizaste el acceso a tu ubicación."
+        : error.code === 3
+          ? "La ubicación tardó demasiado. Intenta buscar de nuevo."
+          : "No pude obtener tu ubicación. Revisa los permisos del dispositivo.";
+      setCercaMsg(mensajeUbicacion);
       setCercaMsgTipo("error");
       setEstadoCerca("error");
       cercaLockRef.current = false;
@@ -636,28 +665,38 @@ export default function AppClient() {
               <label className="field-label" htmlFor="punto-partida">Punto de partida</label>
               <input id="punto-partida" type="text" autoComplete="street-address" placeholder="Colonia, calle o alcaldía" value={partidaTexto} onChange={(event) => setPartidaTexto(event.target.value)} />
               <div className="row">
-                <button className="btn" type="button" onClick={() => {
+                <button className="btn sec" type="button" onClick={() => {
                   if (!partidaTexto.trim()) {
-                    setCercaMsg("Escribe una dirección.");
+                    setCercaMsg("Escribe una dirección para usarla como origen de las rutas.");
                     setCercaMsgTipo("error");
                     return;
                   }
                   setPartidaModo("manual");
                   save(K.partida, { modo: "manual", texto: partidaTexto });
-                  setCercaMsg("Sales desde: " + partidaTexto);
+                  setCercaMsg("Origen de las rutas: " + partidaTexto);
                   setCercaMsgTipo("success");
-                }}>Usar este punto</button>
-                <ActionButton
-                  className="btn sec"
-                  status={estadoCerca}
-                  loadingLabel="Buscando cerca…"
-                  successLabel="Búsqueda lista"
-                  errorLabel="Reintentar búsqueda"
-                  onClick={buscarCerca}
-                >Buscar cerca</ActionButton>
+                }}>Usar para las rutas</button>
               </div>
+              <p className="small">La búsqueda de tiendas usa tu ubicación actual del dispositivo. La dirección de arriba solo cambia el origen de las rutas.</p>
+              <div className="row" role="group" aria-label="Radio de búsqueda de supermercados">
+                <button
+                  className={`btn ${radioCerca === 3000 ? "" : "sec"}`}
+                  type="button"
+                  aria-pressed={radioCerca === 3000}
+                  disabled={estadoCerca === "loading"}
+                  onClick={() => buscarCerca(3000)}
+                >{estadoCerca === "loading" && radioCerca === 3000 ? "Buscando en 3 km…" : "Buscar en un radio de 3 km"}</button>
+                <button
+                  className={`btn ${radioCerca === 10000 ? "" : "sec"}`}
+                  type="button"
+                  aria-pressed={radioCerca === 10000}
+                  disabled={estadoCerca === "loading"}
+                  onClick={() => buscarCerca(10000)}
+                >{estadoCerca === "loading" && radioCerca === 10000 ? "Buscando en 10 km…" : "Buscar en un radio de 10 km"}</button>
+              </div>
+              <p className="small">Los resultados vienen de OpenStreetMap; puede que falte algún comercio en el mapa.</p>
               {cercaMsg ? <p className={`small status-message status-${cercaMsgTipo}`} role={cercaMsgTipo === "error" ? "alert" : "status"} aria-live={cercaMsgTipo === "error" ? "assertive" : "polite"} aria-busy={estadoCerca === "loading"}>{cercaMsg}</p> : null}
-              {miUbicacion ? <MapaCercanos yo={miUbicacion} puntos={cercanos} /> : null}
+              {miUbicacion ? <MapaCercanos yo={miUbicacion} puntos={cercanos} radioM={radioCerca} /> : null}
               {cercanos.map((store) => (
                 <div className="tienda" key={store.id}>
                   <div><b>{store.nombre}</b><div className="small">{store.km} km</div></div>
