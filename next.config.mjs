@@ -1,9 +1,12 @@
 /**
- * Cabeceras de seguridad.
+ * Cabeceras de seguridad base (para cualquier hosting que no sea Vercel).
  *
- * X-Frame-Options: DENY vive en vercel.json (solo producción), para que las
- * vistas previas locales se puedan mostrar dentro de un iframe de desarrollo.
- * En Vercel la app sí queda protegida contra clickjacking.
+ * En Vercel manda vercel.json, que además cubre los estáticos (/_next, iconos).
+ * El resto —CSP con nonce, HSTS y COOP— lo pone middleware.js, porque necesita
+ * calcular un nonce por petición.
+ *
+ * X-Frame-Options: DENY vive en vercel.json y en middleware (solo producción),
+ * para que las vistas previas locales se puedan mostrar dentro de un iframe.
  *
  * @type {import('next').NextConfig}
  */
@@ -17,6 +20,10 @@ const nextConfig = {
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Permissions-Policy",
+            value: "geolocation=(self), camera=(self), microphone=(), payment=(), usb=()",
+          },
         ],
       },
     ];

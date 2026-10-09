@@ -23,8 +23,13 @@ Esta app **no** lee precios en vivo de Walmart, Soriana o Chedraui. Usa un catá
 - Iconos PNG (180/192/512 y maskable) para que se pueda instalar en iPad y Android
 - Ranking, ahorro, ticket, antojos aparte del presupuesto
 - Mapa con geolocalización (OpenStreetMap + Overpass, con caché)
-- Caché en service worker e IndexedDB (índices tipo y expira)
-- Política de privacidad en /privacidad
+- Caché de archivos de la app en el service worker; resultados de marcas y mapa
+  en IndexedDB con expiración (12 h y 15 min, respectivamente)
+- Fondo animado, tema claro/oscuro, mosaico de accesos y resultado con contador,
+  podio y confeti (respeta `prefers-reduced-motion`)
+- Política de privacidad en /privacidad (actualizada el 9 de octubre de 2026)
+- Controles de seguridad, canal privado de reporte y revisiones continuas en
+  [SECURITY.md](./SECURITY.md) (`npm audit` + pruebas de seguridad)
 - Archivos de ejemplo en /ejemplo-despensa.txt y /ejemplo-despensa.csv
 
 ## APIs
@@ -34,16 +39,22 @@ Con key (opcionales, no se quitan):
 - GEMINI_API_KEY o GROQ_API_KEY para lectura de foto de la lista.
   La ruta `/api/lista-foto` prueba varios modelos vigentes en orden y acepta
   `GEMINI_MODEL` o `GROQ_MODEL` para fijar uno a mano. La foto se reduce en el
-  celular antes de subirla (Vercel corta los envíos arriba de ~4.5 MB).
+  celular antes de subirla; la ruta comprueba origen, tipo y firma del archivo,
+  limita el cuerpo a 5 MB, aplica 8 envíos/minuto y un máximo de 26 s por lectura.
+- `/api/marcas` consulta Open Food Facts; limita 60 peticiones/minuto y corta
+  la llamada externa a los 8 s. Los límites por IP son de mejor esfuerzo por
+  instancia serverless (no sustituyen un WAF/Redis).
 
 Sin key ni registro:
 
 - Open Food Facts (github.com/openfoodfacts/openfoodfacts-server) — marcas
 - Overpass / OSM — súpers cerca
-- Leaflet (github.com/Leaflet/Leaflet) — mapa
+- Leaflet 1.9.4 (BSD-2-Clause, ver `public/vendor/leaflet/LICENSE`) — se sirve
+  desde la propia app, no desde un CDN. Los mosaicos del mapa vienen de OSM.
 
 El código QR ya no se pide a ningún servicio: se genera en el propio dispositivo
-(lib/qr.js, sin dependencias), así que también sale sin internet.
+(lib/qr.js, sin dependencias), así que también sale sin internet. El service worker
+sirve HTML desde red en línea y renueva la CSP/nonce al abrir una copia offline.
 
 ## Índices
 
@@ -79,6 +90,8 @@ Antes de subir, comprueba en local:
 
 ```bash
 npm ci
+npm run test:security
+npm audit
 npm run build
 ```
 

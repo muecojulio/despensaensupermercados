@@ -1,6 +1,7 @@
 "use client";
 
 import ActionButton from "./ActionButton";
+import Icono from "./Iconos";
 import { claveDispositivo, guiaInstalacion } from "../lib/dispositivo";
 
 /**
@@ -40,7 +41,7 @@ export default function InstruccionesInstalacion({
               successLabel="Solicitud enviada"
               errorLabel="Inténtalo de nuevo"
               onClick={() => onInstalar?.()}
-            >Instalar app</ActionButton>
+            ><Icono nombre="instalar" />Instalar app</ActionButton>
           </div>
         </>
       ) : (

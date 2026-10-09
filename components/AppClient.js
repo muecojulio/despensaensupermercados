@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PRODUCTOS, TIENDAS } from "../data/catalogo";
 import { BASICOS, ZONAS } from "../data/zonas";
 import { NOMBRE_PASILLO, ORDEN_PASILLO, PESO_KG, RECETAS, SUSTITUTOS, avisoDiaCompra } from "../data/compras";
@@ -9,6 +9,7 @@ import { leerCualquierArchivo } from "../lib/archivos";
 import { comprimirImagen } from "../lib/imagen";
 import { buscarSupersCercanos } from "../lib/geo";
 import { detectarDispositivo } from "../lib/dispositivo";
+import { colorDe, rayaDe } from "../lib/colores";
 import ProductoFoto from "./ProductoFoto";
 import MapaCercanos from "./MapaCercanos";
 import SelectorMarca from "./SelectorMarca";
@@ -22,6 +23,10 @@ import CollapsiblePanel from "./CollapsiblePanel";
 import Switch from "./Switch";
 import ChipRail from "./ChipRail";
 import SwipeRevealCard from "./SwipeRevealCard";
+import ConfetiAhorro from "./ConfetiAhorro";
+import ContadorDinero from "./ContadorDinero";
+import Icono from "./Iconos";
+import TiraPrecios from "./TiraPrecios";
 import useActionStatus from "./useActionStatus";
 
 const K = {
@@ -38,7 +43,7 @@ const K = {
   partida: "despensa-mx-partida",
 };
 const DEMO = "2 leche\n1 huevo 12\n1 Coca-Cola\n1 kg tortillas\n1 arroz\n1 frijol\n1 aceite\n1 jitomate\n1 pollo";
-const COLORES = { lacteos: "#d7edff", despensa: "#ffe9c7", fruta: "#e3f6d4", carnes: "#ffd6d0", bebidas: "#ffd4dc", hogar: "#e6e4ff" };
+const MEDALLAS = ["🥇", "🥈", "🥉"];
 const money = (n) => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n || 0);
 const save = (k, v) => { try { localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v)); } catch {} };
 const load = (k) => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : null; } catch { return null; } };
@@ -165,6 +170,18 @@ export default function AppClient() {
   const antojoGanadora = ganadora?.totalAntojo ?? 0;
   const hechos = items.filter((it) => marcados[it.id]).length;
   const faltanBasicos = BASICOS.filter((b) => !items.some((it) => it.nombre.toLowerCase().includes(b.split(" ")[0])));
+  // Vitrina de precios de la marquesina: una muestra del catálogo al precio más bajo.
+  const tiraItems = useMemo(() => PRODUCTOS.filter((_, i) => i % 4 === 0).map((producto) => ({
+    id: producto.id,
+    emoji: producto.emoji,
+    nombre: producto.nombre.split(" ").slice(0, 2).join(" "),
+    precio: money(Math.min(...Object.values(producto.precios))),
+  })), []);
+
+  const mapaError = useCallback((error) => {
+    setCercaMsg(error?.message || "No pude cargar el mapa. Intenta de nuevo.");
+    setCercaMsgTipo("error");
+  }, []);
 
   function notificar(text, type = "success") {
     setMensaje(text);
@@ -409,11 +426,21 @@ export default function AppClient() {
   return (
     <div className={"wrap compacto" + (esApp ? " app-mode" : "")}>
       <section className="hero mini">
+        <div className="hero-orbita" aria-hidden="true">
+          <span>🥛</span>
+          <span>🍅</span>
+          <span>🫓</span>
+          <span>🥑</span>
+          <span>🧺</span>
+        </div>
         <div><h1>Despensa MX</h1><p>Todo junto, en la tienda más barata.</p></div>
         <div className="row">
-          {demoActiva ? <button className="btn danger" type="button" onClick={quitarPrecarga}>Quitar precarga</button> : <button className="btn sec" type="button" onClick={verPrecarga}>Ver ejemplo</button>}
+          {demoActiva
+            ? <button className="btn danger" type="button" onClick={quitarPrecarga}><Icono nombre="basura" />Quitar precarga</button>
+            : <button className="btn sec" type="button" onClick={verPrecarga}><Icono nombre="estrella" />Ver ejemplo</button>}
         </div>
       </section>
+      <TiraPrecios items={tiraItems} />
       <FeedbackMessage message={mensaje} type={mensajeTipo} />
       <p className="hint">Precios de referencia, no del anaquel de hoy.</p>
       {avisoDia ? <p className="aviso">{avisoDia}</p> : null}
@@ -429,23 +456,63 @@ export default function AppClient() {
           onSwipe={(direction) => cambiarPestana(direction === "next" ? "subir" : "inicio")}
         >
           {mostrarPanel("inicio") ? (
-            <section className="card">
+            <section className="card destacada">
               <h2>Empieza aquí</h2>
               <p className="small">Sube tu lista. En segundos te digo en qué súper del Valle de México sale más barato comprar todo junto.</p>
               <div className="home-actions">
-                <button className="btn home-btn" type="button" onClick={() => irApp("archivo")}>Subir archivo de despensa</button>
-                <button className="btn sec home-btn" type="button" onClick={() => irApp()}>Escribir la lista a mano</button>
+                <button className="btn home-btn latido" type="button" onClick={() => irApp("archivo")}>
+                  <Icono nombre="subir" />Subir mi lista de despensa
+                </button>
+              </div>
+              <div className="accesos">
+                <button className="acceso" type="button" onClick={() => irApp()}>
+                  <span className="acceso__cuerpo">
+                    <span className="acceso__icono" style={{ background: "linear-gradient(140deg, #159b62, #0b3527)" }}>
+                      <Icono nombre="lapiz" />
+                    </span>
+                    <span className="acceso__texto">Escribirla a mano</span>
+                    <span className="acceso__nota">Un producto por renglón</span>
+                  </span>
+                </button>
                 <ActionButton
-                  className="btn sec home-btn"
+                  className="acceso"
                   status={estadoFoto}
-                  loadingLabel="Leyendo foto…"
+                  loadingLabel="Leyendo la foto…"
                   successLabel="Foto leída"
                   errorLabel="Reintentar foto"
                   onClick={() => irApp("foto")}
-                >Foto de la lista</ActionButton>
-                <button className="btn sec home-btn" type="button" onClick={() => irApp("catalogo")}>Ver catálogo</button>
-                <a className="btn sec home-btn" href="/instalar">Instalar la app</a>
-                <button className="btn sec home-btn" type="button" onClick={verPrecarga}>Ver ejemplo precargado</button>
+                >
+                  <span className="acceso__cuerpo">
+                    <span className="acceso__icono" style={{ background: "linear-gradient(140deg, #ff8c42, #c94f10)" }}>
+                      <Icono nombre="camara" />
+                    </span>
+                    <span className="acceso__texto">Foto de la lista</span>
+                    <span className="acceso__nota">La transcribo por ti</span>
+                  </span>
+                </ActionButton>
+                <button className="acceso" type="button" onClick={() => irApp("catalogo")}>
+                  <span className="acceso__cuerpo">
+                    <span className="acceso__icono" style={{ background: "linear-gradient(140deg, #7a6cf6, #3b2fb0)" }}>
+                      <Icono nombre="catalogo" />
+                    </span>
+                    <span className="acceso__texto">Ver el catálogo</span>
+                    <span className="acceso__nota">{PRODUCTOS.length} productos con marca</span>
+                  </span>
+                </button>
+                <a className="acceso" href="/instalar">
+                  <span className="acceso__cuerpo">
+                    <span className="acceso__icono" style={{ background: "linear-gradient(140deg, #3ec1e0, #157b93)" }}>
+                      <Icono nombre="instalar" />
+                    </span>
+                    <span className="acceso__texto">Instalar la app</span>
+                    <span className="acceso__nota">Se abre sin navegador</span>
+                  </span>
+                </a>
+              </div>
+              <div className="row">
+                <a className="btn sec" href="/ejemplo-despensa.txt" download><Icono nombre="archivo" />Ejemplo .txt</a>
+                <a className="btn sec" href="/ejemplo-despensa.csv" download><Icono nombre="archivo" />Ejemplo CSV</a>
+                <button className="btn sec" type="button" onClick={verPrecarga}><Icono nombre="estrella" />Ver el ejemplo cargado</button>
               </div>
               <p className="hint">Precios de referencia para CDMX y zona conurbada.</p>
             </section>
@@ -472,11 +539,12 @@ export default function AppClient() {
                 onDragLeave={() => setArrastrando(false)}
                 onDrop={(event) => { event.preventDefault(); setArrastrando(false); procesarArchivo(event.dataTransfer.files?.[0]); }}
               >
+                <span className="drop-emoji" aria-hidden="true">🧾</span>
                 <b>Arrastra tu lista aquí</b>
                 <p className="small">.txt o .csv. Si la tienes en Excel: Archivo → Guardar como → CSV.</p>
                 <div className="row row-center">
-                  <a className="btn sec" href="/ejemplo-despensa.txt" download>Ejemplo .txt</a>
-                  <a className="btn sec" href="/ejemplo-despensa.csv" download>Ejemplo CSV</a>
+                  <a className="btn sec" href="/ejemplo-despensa.txt" download><Icono nombre="archivo" />Ejemplo .txt</a>
+                  <a className="btn sec" href="/ejemplo-despensa.csv" download><Icono nombre="archivo" />Ejemplo CSV</a>
                 </div>
                 <div className="row row-center upload-actions">
                   <ActionButton
@@ -486,7 +554,7 @@ export default function AppClient() {
                     successLabel="Archivo listo"
                     errorLabel="Reintentar archivo"
                     onClick={() => fileRef.current?.click()}
-                  >Elegir archivo</ActionButton>
+                  ><Icono nombre="archivo" />Elegir archivo</ActionButton>
                   <ActionButton
                     className="btn sec"
                     status={estadoFoto}
@@ -494,7 +562,7 @@ export default function AppClient() {
                     successLabel="Foto leída"
                     errorLabel="Reintentar foto"
                     onClick={() => fotoRef.current?.click()}
-                  >Foto de la lista</ActionButton>
+                  ><Icono nombre="camara" />Foto de la lista</ActionButton>
                 </div>
                 <input
                   ref={fileRef}
@@ -541,21 +609,22 @@ export default function AppClient() {
           {mostrarPanel("resultado") ? (
             <>
               <section className="card winner" id="resultado">
+                <ConfetiAhorro clave={`${ganadora?.tienda.id || "-"}-${ganadora?.total || 0}`} activo={!!ganadora && ahorro > 0} />
                 <h2>2. Dónde sale más barato comprar TODO junto</h2>
                 {!items.length || !ganadora ? <p className="small">Sube el archivo y aquí aparece la tienda ganadora.</p> : (
                   <>
                     <div className="resumen"><div>1. {sucursal ? sucursal.nombre : ganadora.tienda.nombre}</div><div>2. Total: {money(ganadora.total)}</div><div>3. Ahorro vs la más cara: {money(ahorro)}</div></div>
                     {noReconocidos.length ? <p className="faltante">No reconocí: {noReconocidos.map((x) => x.nombre).join(", ")}.</p> : <p className="ok">Reconocí todos los renglones.</p>}
-                    <p className="precio grande">{money(ganadora.total)}</p>
+                    <p className="precio grande"><ContadorDinero valor={ganadora.total} formato={money} /></p>
                     <p className="small">Despensa: {money(baseGanadora)}{antojoGanadora > 0 ? " · Antojos: " + money(antojoGanadora) : ""}</p>
                     {tope > 0 && baseGanadora > tope ? <p className="faltante">Se pasa del tope de {money(tope)}.</p> : null}
                     <div className="row">
                       <button className="btn" type="button" onClick={() => {
                         const lineas = ["Despensa: " + nombreLista, "Más barato: " + ganadora.tienda.nombre + " " + money(ganadora.total), ""].concat(ganadora.detalle.map((d) => "• " + d.cantidad + " × " + (d.producto ? d.producto.nombre : d.nombre)));
-                        window.open("https://wa.me/?text=" + encodeURIComponent(lineas.join("\n")), "_blank");
-                      }}>WhatsApp</button>
-                      <a className="btn sec" href={mapaUrl(ganadora.tienda.nombre)} target="_blank" rel="noreferrer">Mapa</a>
-                      <button className="btn sec" type="button" onClick={() => { const next = [{ id: Date.now().toString(), fecha: new Date().toLocaleString("es-MX"), tienda: ganadora.tienda.nombre, total: ganadora.total, zona, nombre: nombreLista }, ...historial].slice(0, 20); setHistorial(next); save(K.hist, next); notificar("Historial guardado."); }}>Historial</button>
+                        window.open("https://wa.me/?text=" + encodeURIComponent(lineas.join("\n")), "_blank", "noopener,noreferrer");
+                      }}><Icono nombre="chat" />WhatsApp</button>
+                      <a className="btn sec" href={mapaUrl(ganadora.tienda.nombre)} target="_blank" rel="noopener noreferrer"><Icono nombre="ruta" />Mapa</a>
+                      <button className="btn sec" type="button" onClick={() => { const next = [{ id: Date.now().toString(), fecha: new Date().toLocaleString("es-MX"), tienda: ganadora.tienda.nombre, total: ganadora.total, zona, nombre: nombreLista }, ...historial].slice(0, 20); setHistorial(next); save(K.hist, next); notificar("Historial guardado."); }}><Icono nombre="reloj" />Historial</button>
                     </div>
                     {ganadora.detalle.map((d) => (
                       <div className="ticket-line" key={d.id}>
@@ -569,9 +638,23 @@ export default function AppClient() {
               </section>
               <section className="card">
                 <h2>Comparación</h2>
-                {[...ranking].sort((a, b) => a.total - b.total).map((r, i) => (
-                  <div className="tienda" key={r.tienda.id}><div><b>{i + 1}. {r.tienda.nombre}</b>{i === 0 ? <span className="tag">más barata</span> : null}</div><div className="precio">{money(r.total)}</div></div>
-                ))}
+                <ul className="podio">
+                  {[...ranking].sort((a, b) => a.total - b.total).map((r, i) => {
+                    const totalMayor = Math.max(1, ...ranking.map((x) => x.total));
+                    const ancho = Math.max(8, Math.round((r.total / totalMayor) * 100));
+                    return (
+                      <li className={"podio-item" + (i === 0 ? " primero" : "")} key={r.tienda.id} style={{ "--i": i }}>
+                        <span className="podio-medalla" aria-hidden="true">{MEDALLAS[i] || `${i + 1}°`}</span>
+                        <span className="podio-nombre">
+                          {r.tienda.nombre}
+                          {i === 0 ? <span className="tag">más barata</span> : null}
+                        </span>
+                        <span className="podio-total">{money(r.total)}</span>
+                        <span className="podio-barra" aria-hidden="true"><span style={{ width: `${ancho}%` }} /></span>
+                      </li>
+                    );
+                  })}
+                </ul>
               </section>
             </>
           ) : null}
@@ -605,7 +688,14 @@ export default function AppClient() {
                       nombre={producto ? producto.nombre : item.nombre}
                       onQuitar={() => setTexto((previous) => borrarLineaEnTexto(previous, indice))}
                     >
-                      <div className={"item-card" + (estaMarcado ? " hecho" : "") + (antojos[item.id] ? " antojo" : "")} style={{ background: antojos[item.id] ? "#ffe8f0" : COLORES[cat] }}>
+                      <div
+                        className={"item-card" + (estaMarcado ? " hecho" : "") + (antojos[item.id] ? " antojo" : "")}
+                        style={{
+                          background: antojos[item.id] ? "var(--cat-antojo)" : colorDe(cat),
+                          "--raya": rayaDe(cat),
+                          "--i": indice,
+                        }}
+                      >
                         <label className="check">
                           <input
                             type="checkbox"
@@ -696,13 +786,13 @@ export default function AppClient() {
               </div>
               <p className="small">Los resultados vienen de OpenStreetMap; puede que falte algún comercio en el mapa.</p>
               {cercaMsg ? <p className={`small status-message status-${cercaMsgTipo}`} role={cercaMsgTipo === "error" ? "alert" : "status"} aria-live={cercaMsgTipo === "error" ? "assertive" : "polite"} aria-busy={estadoCerca === "loading"}>{cercaMsg}</p> : null}
-              {miUbicacion ? <MapaCercanos yo={miUbicacion} puntos={cercanos} radioM={radioCerca} /> : null}
+              {miUbicacion ? <MapaCercanos yo={miUbicacion} puntos={cercanos} radioM={radioCerca} onError={mapaError} /> : null}
               {cercanos.map((store) => (
                 <div className="tienda" key={store.id}>
                   <div><b>{store.nombre}</b><div className="small">{store.km} km</div></div>
                   <div className="row">
-                    <button className="btn sec" type="button" onClick={() => { setSucursal(store); cambiarPestana("resultado"); }}>Usar esta</button>
-                    <a className="btn sec" href={rumboUrl(store.lat, store.lon)} target="_blank" rel="noreferrer">Cómo llegar</a>
+                    <button className="btn sec" type="button" onClick={() => { setSucursal(store); cambiarPestana("resultado"); }}><Icono nombre="check" />Usar esta</button>
+                    <a className="btn sec" href={rumboUrl(store.lat, store.lon)} target="_blank" rel="noopener noreferrer"><Icono nombre="ruta" />Cómo llegar</a>
                   </div>
                 </div>
               ))}
@@ -757,7 +847,7 @@ export default function AppClient() {
                     save(K.ofertas, next);
                     setEstadoOferta("success");
                     notificar("Oferta guardada.");
-                  }}>Guardar oferta</ActionButton>
+                  }}><Icono nombre="check" />Guardar oferta</ActionButton>
                 </div>
                 {faltanBasicos.length ? <p className="small">¿Se te ofrece? {faltanBasicos.join(", ")}.</p> : null}
               </section>
@@ -778,10 +868,10 @@ export default function AppClient() {
                     save(K.listas, next);
                     setEstadoLista("success");
                     notificar("Lista guardada.");
-                  }}>Guardar lista</ActionButton>
-                  <button className="btn sec" type="button" aria-expanded={verCatalogo} aria-controls="panel-mas-catalogo" onClick={() => setVerCatalogo((open) => !open)}>{verCatalogo ? "Ocultar catálogo" : "Catálogo"}</button>
-                  <button className="btn sec" type="button" aria-expanded={verTiendas} aria-controls="panel-mas-tiendas" onClick={() => setVerTiendas((open) => !open)}>{verTiendas ? "Ocultar tiendas" : "Mis tiendas"}</button>
-                  <button className="btn sec" type="button" aria-controls="panel-qr" onClick={() => cambiarPestana("qr")}>Código QR</button>
+                  }}><Icono nombre="check" />Guardar lista</ActionButton>
+                  <button className="btn sec" type="button" aria-expanded={verCatalogo} aria-controls="panel-mas-catalogo" onClick={() => setVerCatalogo((open) => !open)}><Icono nombre="catalogo" />{verCatalogo ? "Ocultar catálogo" : "Catálogo"}</button>
+                  <button className="btn sec" type="button" aria-expanded={verTiendas} aria-controls="panel-mas-tiendas" onClick={() => setVerTiendas((open) => !open)}><Icono nombre="bolsa" />{verTiendas ? "Ocultar tiendas" : "Mis tiendas"}</button>
+                  <button className="btn sec" type="button" aria-controls="panel-qr" onClick={() => cambiarPestana("qr")}><Icono nombre="qr" />Código QR</button>
                 </div>
               </section>
               <CollapsiblePanel id="panel-mas-catalogo" open={verCatalogo}>
@@ -802,15 +892,15 @@ export default function AppClient() {
                   <p className="small">Toca una tienda para incluirla o quitarla de la comparación.</p>
                 </section>
               </CollapsiblePanel>
-              <section className="card"><h2>Instalar y privacidad</h2><div className="row"><a className="btn sec" href="/instalar">Instalar la app</a><a className="btn sec" href="/privacidad">Política de privacidad</a></div></section>
+              <section className="card"><h2>Instalar y privacidad</h2><div className="row"><a className="btn sec" href="/instalar"><Icono nombre="instalar" />Instalar la app</a><a className="btn sec" href="/privacidad"><Icono nombre="escudo" />Política de privacidad</a></div></section>
               <section className="card">
                 <h2>Listas guardadas</h2>
                 {guardadas.length ? guardadas.map((lista) => (
                   <div className="lista-guardada" key={lista.id}>
                     <div><b>{lista.nombre}</b><div className="small">{lista.fecha}</div></div>
                     <div className="row">
-                      <button className="btn sec" type="button" onClick={() => { setNombreLista(lista.nombre); setTexto(lista.texto); notificar(`Abrí ${lista.nombre}.`); }}>Abrir</button>
-                      <button className="btn danger" type="button" aria-label={`Borrar lista ${lista.nombre}`} onClick={() => { const next = guardadas.filter((item) => item.id !== lista.id); setGuardadas(next); save(K.listas, next); notificar(`Borré ${lista.nombre}.`, "info"); }}>Borrar</button>
+                      <button className="btn sec" type="button" onClick={() => { setNombreLista(lista.nombre); setTexto(lista.texto); notificar(`Abrí ${lista.nombre}.`); }}><Icono nombre="check" />Abrir</button>
+                      <button className="btn danger" type="button" aria-label={`Borrar lista ${lista.nombre}`} onClick={() => { const next = guardadas.filter((item) => item.id !== lista.id); setGuardadas(next); save(K.listas, next); notificar(`Borré ${lista.nombre}.`, "info"); }}><Icono nombre="basura" />Borrar</button>
                     </div>
                   </div>
                 )) : <p className="small">Todavía no hay listas guardadas.</p>}
@@ -865,7 +955,7 @@ export default function AppClient() {
             errorLabel="Inténtalo de nuevo"
             disabled={!promptInstall}
             onClick={instalarApp}
-          >Instalar</ActionButton>
+          ><Icono nombre="instalar" />Instalar</ActionButton>
           <button className="btn sec" type="button" onClick={() => setShowInstall(false)}>Ahora no</button>
         </div>
       </div>

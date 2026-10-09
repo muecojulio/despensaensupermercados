@@ -1,17 +1,9 @@
 "use client";
 
 import { PRODUCTOS } from "../data/catalogo";
+import { colorDe } from "../lib/colores";
 import ProductoFoto from "./ProductoFoto";
 import ScrollRail from "./ScrollRail";
-
-const COLORES = {
-  lacteos: "#d7edff",
-  despensa: "#ffe9c7",
-  fruta: "#e3f6d4",
-  carnes: "#ffd6d0",
-  bebidas: "#ffd4dc",
-  hogar: "#e6e4ff",
-};
 
 export default function CatalogoGrid({ onPick, marcas }) {
   return (
@@ -26,7 +18,7 @@ export default function CatalogoGrid({ onPick, marcas }) {
             key={prod.id}
             type="button"
             className="chip-prod"
-            style={{ background: COLORES[prod.categoria] || "#fbfefb" }}
+            style={{ background: colorDe(prod.categoria) }}
             aria-label={`Agregar ${prod.nombre} y elegir marca`}
             onClick={() => onPick(prod)}
           >

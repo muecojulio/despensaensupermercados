@@ -42,6 +42,11 @@ export default function PaginaInstalar() {
   return (
     <div className="wrap">
       <section className="hero mini">
+        <div className="hero-orbita" aria-hidden="true">
+          <span>📲</span>
+          <span>🚀</span>
+          <span>🧺</span>
+        </div>
         <div>
           <h1>Instalar Despensa MX</h1>
           <p>En el celular, en el iPad o en la computadora. Sin tiendas de apps.</p>

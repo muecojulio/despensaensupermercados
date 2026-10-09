@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { dibujarQR } from "../lib/qr";
 import ActionButton from "./ActionButton";
+import Icono from "./Iconos";
 import useActionStatus from "./useActionStatus";
 
 const PIXELES_VISTA = 512;
@@ -141,14 +142,23 @@ export default function CodigoQR({
   return (
     <>
       <div className="qr-marco">
-        <canvas
-          ref={canvasRef}
-          className="qr-canvas"
-          role="img"
-          aria-label={valor ? `${descripcion}: abre ${valor}` : descripcion}
-          hidden={!listo}
-        />
-        {!listo ? <p className="small qr-aviso">{fallo || "Preparando el código QR…"}</p> : null}
+        {/* El canvas se monta siempre: mientras el QR se dibuja se tapa con el
+            esqueleto, así la referencia no salta de un nodo a otro. */}
+        <div className="qr-lienzo" hidden={!listo}>
+          <canvas
+            ref={canvasRef}
+            className="qr-canvas"
+            role="img"
+            aria-label={valor ? `${descripcion}: abre ${valor}` : descripcion}
+          />
+          {listo ? <span className="qr-escaneo" aria-hidden="true" /> : null}
+        </div>
+        {!listo ? (
+          <>
+            <div className="skeleton" style={{ width: "min(240px, 80%)", height: 240, borderRadius: 18 }} aria-hidden="true" />
+            <p className="small qr-aviso">{fallo || "Preparando el código QR…"}</p>
+          </>
+        ) : null}
       </div>
       {mostrarEnlace && valor ? <p className="qr-url">{valor}</p> : null}
       <div className="row row-center qr-actions">
@@ -158,7 +168,7 @@ export default function CodigoQR({
           successLabel="Descargado"
           errorLabel="Reintentar"
           onClick={descargar}
-        >Descargar QR (PNG)</ActionButton>
+        ><Icono nombre="descarga" />Descargar QR (PNG)</ActionButton>
         <ActionButton
           className="btn sec"
           status={estadoCopiar}
@@ -166,7 +176,7 @@ export default function CodigoQR({
           successLabel="Enlace copiado"
           errorLabel="Reintentar"
           onClick={copiar}
-        >Copiar enlace</ActionButton>
+        ><Icono nombre="copiar" />Copiar enlace</ActionButton>
         <ActionButton
           className="btn sec"
           status={estadoCompartir}
@@ -174,7 +184,7 @@ export default function CodigoQR({
           successLabel="Compartido"
           errorLabel="Reintentar"
           onClick={compartir}
-        >Compartir</ActionButton>
+        ><Icono nombre="compartir" />Compartir</ActionButton>
       </div>
     </>
   );

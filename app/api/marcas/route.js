@@ -1,14 +1,31 @@
 // La ruta lee ?q= en cada petición, así que es dinámica por sí sola.
 // El caché de datos (revalidate) evita golpear Open Food Facts en cada visita.
 
+import { cabecerasLimite, ipDelCliente, limiteDeUso } from "../../../lib/seguridad";
+
+const MAX_POR_MINUTO = 60;
+const TIMEOUT_MS = 8000;
+
 function limpia(s) {
   return String(s || "")
+    // Sin caracteres de control: tampoco queremos mandarlos de rebote al
+    // servicio de terceros.
+    .replace(/[^\P{Cc}]/gu, "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 48);
 }
 
 export async function GET(request) {
+  const ip = ipDelCliente(request);
+  const cupo = limiteDeUso(`marcas:${ip}`, MAX_POR_MINUTO, 60_000);
+  if (!cupo.permitido) {
+    return Response.json(
+      { marcas: [], error: "rate-limit" },
+      { status: 429, headers: cabecerasLimite(cupo, MAX_POR_MINUTO) },
+    );
+  }
+
   const q = limpia(new URL(request.url).searchParams.get("q"));
   if (q.length < 2) {
     return Response.json({ marcas: [] });
@@ -26,6 +43,7 @@ export async function GET(request) {
         Accept: "application/json",
       },
       next: { revalidate: 43200 },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!res.ok) {
       return Response.json({ marcas: [], fuente: "openfoodfacts", error: "upstream" });
@@ -48,7 +66,7 @@ export async function GET(request) {
         headers: {
           "Cache-Control": "public, s-maxage=43200, stale-while-revalidate=86400",
         },
-      }
+      },
     );
   } catch {
     return Response.json({ marcas: [] });

@@ -1,4 +1,5 @@
 import "./globals.css";
+import FondoAnimado from "../components/FondoAnimado";
 
 export const metadata = {
   title: "Despensa MX",
@@ -13,10 +14,13 @@ export const metadata = {
 };
 
 export const viewport = {
-  themeColor: "#12352a",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#0e6b4c" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b1712" },
+  ],
 };
 
 export default function RootLayout({ children }) {
@@ -32,7 +36,10 @@ export default function RootLayout({ children }) {
         <link rel="icon" href="/icon-512.png" type="image/png" sizes="512x512" />
         <link rel="icon" href="/icon-192.svg" type="image/svg+xml" />
       </head>
-      <body>{children}</body>
+      <body>
+        <FondoAnimado />
+        {children}
+      </body>
     </html>
   );
 }
