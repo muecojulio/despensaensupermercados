@@ -9,7 +9,7 @@
     "test:security": "node --experimental-default-type=module --test tests/seguridad.test.js"
   },
   "dependencies": {
-    "next": "15.5.27",
+    "next": "16.3.8",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },
