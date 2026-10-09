@@ -552,9 +552,9 @@ export default function AppClient() {
                     <div className="row">
                       <button className="btn" type="button" onClick={() => {
                         const lineas = ["Despensa: " + nombreLista, "Más barato: " + ganadora.tienda.nombre + " " + money(ganadora.total), ""].concat(ganadora.detalle.map((d) => "• " + d.cantidad + " × " + (d.producto ? d.producto.nombre : d.nombre)));
-                        window.open("https://wa.me/?text=" + encodeURIComponent(lineas.join("\n")), "_blank");
+                        window.open("https://wa.me/?text=" + encodeURIComponent(lineas.join("\n")), "_blank", "noopener,noreferrer");
                       }}>WhatsApp</button>
-                      <a className="btn sec" href={mapaUrl(ganadora.tienda.nombre)} target="_blank" rel="noreferrer">Mapa</a>
+                      <a className="btn sec" href={mapaUrl(ganadora.tienda.nombre)} target="_blank" rel="noopener noreferrer">Mapa</a>
                       <button className="btn sec" type="button" onClick={() => { const next = [{ id: Date.now().toString(), fecha: new Date().toLocaleString("es-MX"), tienda: ganadora.tienda.nombre, total: ganadora.total, zona, nombre: nombreLista }, ...historial].slice(0, 20); setHistorial(next); save(K.hist, next); notificar("Historial guardado."); }}>Historial</button>
                     </div>
                     {ganadora.detalle.map((d) => (
@@ -702,7 +702,7 @@ export default function AppClient() {
                   <div><b>{store.nombre}</b><div className="small">{store.km} km</div></div>
                   <div className="row">
                     <button className="btn sec" type="button" onClick={() => { setSucursal(store); cambiarPestana("resultado"); }}>Usar esta</button>
-                    <a className="btn sec" href={rumboUrl(store.lat, store.lon)} target="_blank" rel="noreferrer">Cómo llegar</a>
+                    <a className="btn sec" href={rumboUrl(store.lat, store.lon)} target="_blank" rel="noopener noreferrer">Cómo llegar</a>
                   </div>
                 </div>
               ))}
