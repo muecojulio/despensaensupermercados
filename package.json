@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:security": "node --experimental-default-type=module --test tests/seguridad.test.js"
   },
   "dependencies": {
     "next": "15.5.27",

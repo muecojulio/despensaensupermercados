@@ -49,7 +49,7 @@ export default function MapaCercanos({ yo, puntos = [], radioM = 3000, onError }
       }
       const map = L.map(caja.current).setView([yo.lat, yo.lon], 14);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap",
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       }).addTo(map);
 
       const radio = L.circle([yo.lat, yo.lon], {

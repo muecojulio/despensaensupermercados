@@ -2,15 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import ScrollRail from "./ScrollRail";
+import { IconoPestaña } from "./Iconos";
 
+/** Orden de las pestañas: también define el barrido de las animaciones. */
 export const APP_TABS = [
-  { id: "inicio", label: "Inicio" },
-  { id: "subir", label: "Subir" },
-  { id: "resultado", label: "Resultado" },
-  { id: "lista", label: "Lista" },
-  { id: "cerca", label: "Cerca" },
-  { id: "mas", label: "Más" },
-  { id: "qr", label: "QR" },
+  { id: "inicio", label: "Inicio", icono: "inicio" },
+  { id: "subir", label: "Subir", icono: "subir" },
+  { id: "resultado", label: "Resultado", icono: "resultado" },
+  { id: "lista", label: "Lista", icono: "lista" },
+  { id: "cerca", label: "Cerca", icono: "cerca" },
+  { id: "mas", label: "Más", icono: "mas" },
+  { id: "qr", label: "QR", icono: "qr" },
 ];
 
 export default function TabBar({ selected, onSelect }) {
@@ -93,7 +95,8 @@ export default function TabBar({ selected, onSelect }) {
             onClick={() => onSelect(tab.id)}
             onKeyDown={(event) => handleKeyDown(event, index)}
           >
-            {tab.label}
+            <IconoPestaña nombre={tab.icono} />
+            <span>{tab.label}</span>
           </button>
         );
       })}

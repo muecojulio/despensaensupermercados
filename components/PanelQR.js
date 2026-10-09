@@ -1,6 +1,7 @@
 "use client";
 
 import CodigoQR from "./CodigoQR";
+import Icono from "./Iconos";
 import InstruccionesInstalacion from "./InstruccionesInstalacion";
 
 /**
@@ -34,7 +35,7 @@ export default function PanelQR({
           onAviso={onAviso}
         />
         <div className="row row-center">
-          <a className="btn sec" href="/instalar">Abrir página de instalación</a>
+          <a className="btn sec" href="/instalar"><Icono nombre="instalar" />Abrir página de instalación</a>
         </div>
       </section>
 

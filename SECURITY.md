@@ -30,6 +30,9 @@ reporte privado para no exponer a los usuarios mientras se corrige.
   `unsafe-inline` para scripts ni hosts de CDN dados de alta. React escribe
   atributos `style` en el HTML del servidor, así que `style-src` sí acepta
   `unsafe-inline`; es lo único que queda abierto ahí.
+- Las páginas SSR se sirven primero desde la red. Para el respaldo offline, el
+  service worker renueva el nonce del HTML y de su CSP antes de responder: los
+  nonces no se repiten entre cargas (también sin conexión).
 - **HSTS** (`max-age=63072000; includeSubDomains; preload`) solo en producción.
 - **X-Content-Type-Options: nosniff**, **Referrer-Policy**,
   **Permissions-Policy** (sin micrófono ni pagos), **X-Frame-Options: DENY** y
@@ -39,22 +42,31 @@ reporte privado para no exponer a los usuarios mientras se corrige.
 ### Superficie de servidor (`app/api`)
 
 - `/api/lista-foto` acepta **solo** data URLs de imagen (`image/jpeg`,
-  `image/png`, `image/webp`) con base64 válido. Antes se reenviaba la cadena tal
-  cual al proveedor: una petición hecha a mano podía hacer que Groq pidiera una
-  URL arbitraria (SSRF de rebote).
-- Tope de cuerpo: 5 MB de base64 (~3.7 MB de imagen) y `content-length`
-  verificado antes de leer.
+  `image/png`, `image/webp`) con base64 y firma de archivo válidos. Antes se
+  reenviaba la cadena tal cual al proveedor: una petición hecha a mano podía
+  hacer que Groq pidiera una URL arbitraria (SSRF de rebote).
+- Comprueba `Origin` contra el host/protocolo que reenvía el proxy y acepta
+  peticiones sin `Origin` para clientes no-browser.
+- Tope de cuerpo: 5 MB. Comprueba `content-length` y lee el stream con límite
+  byte a byte para no reservar memoria sin tope en peticiones chunked.
 - Límite de uso por IP (8 fotos/minuto, 60 consultas/minuto en `/api/marcas`) con
   cabeceras `RateLimit-*` y `Retry-After`. Es en memoria, así que en serverless
   se aplica por instancia: mitigación, no garantía.
-- `AbortSignal.timeout` en todas las llamadas a terceros (45 s lectura de foto,
-  8 s Open Food Facts).
+- `AbortSignal.timeout` en todas las llamadas a terceros (10 s por intento,
+  26 s de presupuesto total para lectura de foto, 8 s Open Food Facts).
 - Los errores del proveedor se registran en el log del servidor y **no** se
   devuelven al navegador: pueden traer identificadores del proyecto o de la key.
 - La salida del modelo pasa por `limpiarTextoModelo()` (sin caracteres de
   control, máximo 200 renglones) antes de llegar al cliente.
 - Las variables `GEMINI_MODEL` / `GROQ_MODEL` se validan contra
   `^[A-Za-z0-9._\-/]{1,64}$` antes de usarse en la URL del proveedor.
+
+### Revisión continua
+
+- `.github/workflows/security.yml` ejecuta las pruebas de seguridad y `npm audit`
+  en push, pull request y semanalmente.
+- `.github/dependabot.yml` propone actualizaciones semanales de npm y mensuales de
+  GitHub Actions.
 
 ### Cliente
 

@@ -1,5 +1,8 @@
 import PaginaInstalar from "../../components/PaginaInstalar";
 
+// Render en cada petición: así el nonce de la CSP llega a los <script>.
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Instalar · Despensa MX",
   description:
