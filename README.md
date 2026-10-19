@@ -22,6 +22,19 @@ Esta app **no** lee precios en vivo de Walmart, Soriana o Chedraui. Usa un catá
   navegador lo permite y muestra el QR para pasarla a otro equipo
 - Iconos PNG (180/192/512 y maskable) para que se pueda instalar en iPad y Android
 - Ranking, ahorro, ticket, antojos aparte del presupuesto
+- **Marcas alternativas más baratas del mismo producto**: precio relativo por marca
+  (marca propia/económica vs. estándar vs. premium en `data/marcas.js`); al elegir
+  marca se sugieren las más baratas con su −% y, en Resultado, el ahorro estimado
+  por renglón con botón para aplicar el cambio. Es un estimado, no precio de anaquel.
+- **Modo «solo antojos»**: selector Todo junto / Solo despensa / Solo antojos en
+  Resultado y en Lista. Los antojos se comparan y suman aparte, con su propio tope
+  (`Tope solo para antojos` en Subir), y nunca se mezclan con el presupuesto
+  principal. El modo y ambos topes se guardan en el dispositivo.
+- **Exportar a imagen o CSV**: en Resultado, «Exportar ranking y lista optimizada»
+  descarga el ranking de tiendas (CSV), la lista de la tienda ganadora ordenada por
+  pasillo (CSV, sin lo que ya está en casa ni lo fuera del modo) o un resumen en
+  imagen PNG lista para compartir. El CSV usa `;` y coma decimal para Excel es-MX.
+  Todo se genera en el dispositivo (`lib/exportar.js`), sin servidor.
 - Mapa con geolocalización (OpenStreetMap + Overpass, con caché)
 - Caché de archivos de la app en el service worker; resultados de marcas y mapa
   en IndexedDB con expiración (12 h y 15 min, respectivamente)

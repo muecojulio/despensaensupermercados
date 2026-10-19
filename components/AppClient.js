@@ -5,6 +5,8 @@ import { PRODUCTOS, TIENDAS } from "../data/catalogo";
 import { BASICOS, ZONAS } from "../data/zonas";
 import { NOMBRE_PASILLO, ORDEN_PASILLO, PESO_KG, RECETAS, SUSTITUTOS, avisoDiaCompra } from "../data/compras";
 import { agregarOSumarProducto, borrarLineaEnTexto, cambiarCantidadEnTexto, comparar, emparejar, parsearLista } from "../lib/despensa";
+import { sugerenciasDeTicket } from "../lib/marcas";
+import { ETIQUETA_MODO } from "../lib/exportar";
 import { leerCualquierArchivo } from "../lib/archivos";
 import { comprimirImagen } from "../lib/imagen";
 import { buscarSupersCercanos } from "../lib/geo";
@@ -19,6 +21,7 @@ import SearchableCombobox from "./SearchableCombobox";
 import TabBar, { APP_TABS } from "./TabBar";
 import SwipeTabPanel from "./SwipeTabPanel";
 import PanelQR from "./PanelQR";
+import PanelExportar from "./PanelExportar";
 import CollapsiblePanel from "./CollapsiblePanel";
 import Switch from "./Switch";
 import ChipRail from "./ChipRail";
@@ -39,11 +42,18 @@ const K = {
   marcas: "despensa-mx-marcas",
   alacena: "despensa-mx-alacena",
   antojo: "despensa-mx-antojos",
+  modo: "despensa-mx-modo",
+  presuAntojo: "despensa-mx-presupuesto-antojos",
   demo: "despensa-mx-sin-precarga",
   partida: "despensa-mx-partida",
 };
 const DEMO = "2 leche\n1 huevo 12\n1 Coca-Cola\n1 kg tortillas\n1 arroz\n1 frijol\n1 aceite\n1 jitomate\n1 pollo";
 const MEDALLAS = ["🥇", "🥈", "🥉"];
+const MODOS = [
+  { id: "todo", etiqueta: "Todo junto" },
+  { id: "despensa", etiqueta: "Solo despensa" },
+  { id: "antojos", etiqueta: "🍭 Solo antojos" },
+];
 const money = (n) => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n || 0);
 const save = (k, v) => { try { localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v)); } catch {} };
 const load = (k) => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : null; } catch { return null; } };
@@ -105,6 +115,8 @@ export default function AppClient() {
   const [marcas, setMarcas] = useState({});
   const [avisoDia] = useState(() => avisoDiaCompra());
   const [antojos, setAntojos] = useState({});
+  const [modo, setModo] = useState("todo");
+  const [presuAntojos, setPresuAntojos] = useState("");
   const [pestana, setPestana] = useState("inicio");
   const [panelAnterior, setPanelAnterior] = useState(null);
   const [direccionPanel, setDireccionPanel] = useState("forward");
@@ -132,6 +144,8 @@ export default function AppClient() {
       const ma = load(K.marcas); if (ma) setMarcas(ma);
       const al = load(K.alacena); if (al) setAlacena(al);
       const an = load(K.antojo); if (an) setAntojos(an);
+      const mo = localStorage.getItem(K.modo); if (mo && MODOS.some((m) => m.id === mo)) setModo(mo);
+      const paAntojo = localStorage.getItem(K.presuAntojo); if (paAntojo) setPresuAntojos(paAntojo);
       const pa = load(K.partida); if (pa) { if (pa.texto) setPartidaTexto(pa.texto); if (pa.modo) setPartidaModo(pa.modo); }
       const instalada = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
       setEsApp(!!instalada);
@@ -158,16 +172,44 @@ export default function AppClient() {
 
   const items = useMemo(() => parsearLista(texto), [texto]);
   const activas = useMemo(() => TIENDAS.filter((t) => tiendasOn[t.id] !== false), [tiendasOn]);
-  const ranking = useMemo(() => comparar(items, activas.length ? activas : TIENDAS, ofertas, { skipIds: alacena, maxPorItem: soloOferta, antojoIds: antojos }), [items, activas, ofertas, alacena, soloOferta, antojos]);
+  const ranking = useMemo(() => comparar(items, activas.length ? activas : TIENDAS, ofertas, { skipIds: alacena, maxPorItem: soloOferta, antojoIds: antojos, modo }), [items, activas, ofertas, alacena, soloOferta, antojos, modo]);
   const ganadora = ranking[0];
   const masCara = ranking[ranking.length - 1];
   const ahorro = ganadora && masCara ? Math.max(0, masCara.total - ganadora.total) : 0;
   const noReconocidos = useMemo(() => items.filter((it) => !emparejar(it).producto), [items]);
   const pesoKg = useMemo(() => items.reduce((acc, item) => alacena[item.id] ? acc : acc + ((emparejar(item).producto ? PESO_KG[emparejar(item).producto.id] || 0.4 : 0.4) * item.cantidad), 0), [items, alacena]);
-  const itemsPasillo = useMemo(() => [...items].sort((a, b) => (ORDEN_PASILLO[emparejar(a).producto?.categoria] || 9) - (ORDEN_PASILLO[emparejar(b).producto?.categoria] || 9)), [items]);
+  const itemsPasillo = useMemo(() => [...items]
+    .filter((item) => modo === "todo" || (modo === "antojos" ? antojos[item.id] : !antojos[item.id]))
+    .sort((a, b) => (ORDEN_PASILLO[emparejar(a).producto?.categoria] || 9) - (ORDEN_PASILLO[emparejar(b).producto?.categoria] || 9)), [items, modo, antojos]);
   const tope = Number(presupuesto) || 0;
+  const topeAntojos = Number(presuAntojos) || 0;
   const baseGanadora = ganadora?.totalBase ?? ganadora?.total ?? 0;
   const antojoGanadora = ganadora?.totalAntojo ?? 0;
+  const hayAntojos = useMemo(() => items.some((it) => antojos[it.id]), [items, antojos]);
+  const sugerenciasMarcas = useMemo(
+    () => (ganadora ? sugerenciasDeTicket(ganadora.detalle, marcas, 5) : []),
+    [ganadora, marcas],
+  );
+  const ahorroMarcas = sugerenciasMarcas.reduce((acc, s) => acc + (s.ahorroEstimado || 0), 0);
+
+  function cambiarModo(siguiente) {
+    setModo(siguiente);
+    save(K.modo, siguiente);
+  }
+
+  const controlModo = (
+    <div className="segmented" role="group" aria-label="Modo de comparación">
+      {MODOS.map((m) => (
+        <button
+          key={m.id}
+          type="button"
+          aria-pressed={modo === m.id}
+          className={modo === m.id ? "on" : ""}
+          onClick={() => cambiarModo(m.id)}
+        >{m.etiqueta}</button>
+      ))}
+    </div>
+  );
   const hechos = items.filter((it) => marcados[it.id]).length;
   const faltanBasicos = BASICOS.filter((b) => !items.some((it) => it.nombre.toLowerCase().includes(b.split(" ")[0])));
   // Vitrina de precios de la marquesina: una muestra del catálogo al precio más bajo.
@@ -590,10 +632,14 @@ export default function AppClient() {
                     {ZONAS.map((z) => <option key={z} value={z}>{z}</option>)}
                   </select>
                 </label>
-                <label className="field-label" htmlFor="presupuesto">Presupuesto tope
+                <label className="field-label" htmlFor="presupuesto">Presupuesto tope (sin antojos)
                   <input id="presupuesto" type="number" min="0" inputMode="decimal" placeholder="1200" value={presupuesto} onChange={(event) => { setPresupuesto(event.target.value); save(K.presu, event.target.value); }} />
                 </label>
+                <label className="field-label" htmlFor="presupuesto-antojos">Tope solo para antojos 🍭
+                  <input id="presupuesto-antojos" type="number" min="0" inputMode="decimal" placeholder="150" value={presuAntojos} onChange={(event) => { setPresuAntojos(event.target.value); save(K.presuAntojo, event.target.value); }} />
+                </label>
               </div>
+              <p className="small">Los antojos se marcan renglón por renglón en la pestaña Lista y no se mezclan con este presupuesto principal.</p>
             </section>
           ) : null}
         </SwipeTabPanel>
@@ -610,14 +656,20 @@ export default function AppClient() {
             <>
               <section className="card winner" id="resultado">
                 <ConfetiAhorro clave={`${ganadora?.tienda.id || "-"}-${ganadora?.total || 0}`} activo={!!ganadora && ahorro > 0} />
-                <h2>2. Dónde sale más barato comprar TODO junto</h2>
-                {!items.length || !ganadora ? <p className="small">Sube el archivo y aquí aparece la tienda ganadora.</p> : (
+                <h2>2. Dónde sale más barato comprar {modo === "antojos" ? "SOLO LOS ANTOJOS" : modo === "despensa" ? "LA DESPENSA (sin antojos)" : "TODO junto"}</h2>
+                {controlModo}
+                {modo === "antojos" && !hayAntojos ? (
+                  <p className="small">Todavía no marcas ningún antojo. En la pestaña <b>Lista</b> activa el switch <b>Antojo</b> en los renglones que no sean de la despensa (el refresco, las galletas…) y aquí se comparan aparte, sin tocar tu presupuesto principal.</p>
+                ) : !items.length || !ganadora ? <p className="small">Sube el archivo y aquí aparece la tienda ganadora.</p> : (
                   <>
-                    <div className="resumen"><div>1. {sucursal ? sucursal.nombre : ganadora.tienda.nombre}</div><div>2. Total: {money(ganadora.total)}</div><div>3. Ahorro vs la más cara: {money(ahorro)}</div></div>
+                    <div className="resumen"><div>1. {sucursal ? sucursal.nombre : ganadora.tienda.nombre}</div><div>2. Total ({ETIQUETA_MODO[modo]}): {money(ganadora.total)}</div><div>3. Ahorro vs la más cara: {money(ahorro)}</div></div>
                     {noReconocidos.length ? <p className="faltante">No reconocí: {noReconocidos.map((x) => x.nombre).join(", ")}.</p> : <p className="ok">Reconocí todos los renglones.</p>}
                     <p className="precio grande"><ContadorDinero valor={ganadora.total} formato={money} /></p>
-                    <p className="small">Despensa: {money(baseGanadora)}{antojoGanadora > 0 ? " · Antojos: " + money(antojoGanadora) : ""}</p>
-                    {tope > 0 && baseGanadora > tope ? <p className="faltante">Se pasa del tope de {money(tope)}.</p> : null}
+                    {modo === "todo" ? <p className="small">Despensa: {money(baseGanadora)}{antojoGanadora > 0 ? " · Antojos: " + money(antojoGanadora) : ""}</p> : null}
+                    {modo === "antojos" ? <p className="small">Solo antojos 🍭: {money(antojoGanadora)} — este monto no se suma al presupuesto principal.</p> : null}
+                    {modo !== "antojos" && tope > 0 && baseGanadora > tope ? <p className="faltante">La despensa se pasa del tope de {money(tope)} (sin contar antojos).</p> : null}
+                    {antojoGanadora > 0 && topeAntojos > 0 && antojoGanadora > topeAntojos ? <p className="faltante">Los antojos se pasan de su tope de {money(topeAntojos)}.</p> : null}
+                    {antojoGanadora > 0 && topeAntojos === 0 ? <p className="small">Sin tope de antojos: pon uno en la pestaña Subir si quieres cuidarlo aparte.</p> : null}
                     <div className="row">
                       <button className="btn" type="button" onClick={() => {
                         const lineas = ["Despensa: " + nombreLista, "Más barato: " + ganadora.tienda.nombre + " " + money(ganadora.total), ""].concat(ganadora.detalle.map((d) => "• " + d.cantidad + " × " + (d.producto ? d.producto.nombre : d.nombre)));
@@ -626,16 +678,33 @@ export default function AppClient() {
                       <a className="btn sec" href={mapaUrl(ganadora.tienda.nombre)} target="_blank" rel="noopener noreferrer"><Icono nombre="ruta" />Mapa</a>
                       <button className="btn sec" type="button" onClick={() => { const next = [{ id: Date.now().toString(), fecha: new Date().toLocaleString("es-MX"), tienda: ganadora.tienda.nombre, total: ganadora.total, zona, nombre: nombreLista }, ...historial].slice(0, 20); setHistorial(next); save(K.hist, next); notificar("Historial guardado."); }}><Icono nombre="reloj" />Historial</button>
                     </div>
-                    {ganadora.detalle.map((d) => (
+                    {ganadora.detalle.filter((d) => !d.fueraDeModo).map((d) => (
                       <div className="ticket-line" key={d.id}>
                         <ProductoFoto producto={d.producto} />
-                        <div className="item-info"><b>{d.cantidad} × {d.producto ? d.producto.nombre : d.nombre}{d.producto && marcas[d.producto.id] ? " · " + marcas[d.producto.id] : ""}</b></div>
+                        <div className="item-info"><b>{d.cantidad} × {d.producto ? d.producto.nombre : d.nombre}{d.producto && marcas[d.producto.id] ? " · " + marcas[d.producto.id] : ""}{d.antojo ? " 🍭" : ""}</b>{d.omitido ? <div className="small">{d.omitido}</div> : null}</div>
                         <div className="precio">{d.subtotal != null ? money(d.subtotal) : "—"}</div>
                       </div>
                     ))}
+                    {ganadora.detalle.some((d) => d.fueraDeModo) ? <p className="small">{ganadora.detalle.filter((d) => d.fueraDeModo).length} renglón(es) fuera de este modo: no suman aquí. Cambia a «Todo junto» para verlos.</p> : null}
                   </>
                 )}
               </section>
+              {ganadora && sugerenciasMarcas.length ? (
+                <section className="card">
+                  <h2>💡 Marcas más baratas del mismo producto</h2>
+                  <p className="small">Cambiando solo la marca podrías ahorrar <b>≈ {money(ahorroMarcas)}</b> en {ganadora.tienda.nombre}. Es un estimado por nivel de marca (la propia suele costar menos); confírmalo en el anaquel.</p>
+                  {sugerenciasMarcas.map((s) => (
+                    <div className="ticket-line" key={s.producto.id}>
+                      <ProductoFoto producto={s.producto} />
+                      <div className="item-info">
+                        <b>{s.producto.nombre}</b>
+                        <div className="small">{s.marcaActual} → <b>{s.marca}</b> ({s.nivel}) · −{s.ahorroPct} % ≈ {money(s.ahorroEstimado)}</div>
+                      </div>
+                      <button className="btn sec" type="button" onClick={() => { guardarMarca(s.producto.id, s.marca); notificar(`Cambié a ${s.marca} en ${s.producto.nombre}.`); }}>Usar {s.marca}</button>
+                    </div>
+                  ))}
+                </section>
+              ) : null}
               <section className="card">
                 <h2>Comparación</h2>
                 <ul className="podio">
@@ -656,6 +725,7 @@ export default function AppClient() {
                   })}
                 </ul>
               </section>
+              <PanelExportar ranking={ranking} ganadora={items.length ? ganadora : null} nombreLista={nombreLista} modo={modo} marcas={marcas} onAviso={notificar} />
             </>
           ) : null}
         </SwipeTabPanel>
@@ -677,6 +747,9 @@ export default function AppClient() {
               </section>
               <section className="card">
                 <h2>Para llevar al súper {items.length ? `(${hechos}/${items.length})` : ""}</h2>
+                {controlModo}
+                {modo !== "todo" ? <p className="small">Viendo: <b>{ETIQUETA_MODO[modo]}</b> ({itemsPasillo.length} renglón{itemsPasillo.length === 1 ? "" : "es"}). Lo demás sigue en tu lista, solo está fuera de este modo y de su presupuesto.</p> : null}
+                {modo === "antojos" && !itemsPasillo.length ? <p className="small">Aún no hay antojos: cambia a «Todo junto», busca el renglón y activa su switch <b>Antojo</b> 🍭.</p> : null}
                 {itemsPasillo.map((item) => {
                   const indice = items.findIndex((x) => x.id === item.id);
                   const producto = emparejar(item).producto;
