@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { marcasLocalesDe } from "../data/marcas";
+import { alternativasMasBaratas, factorMarca, nivelDeMarca } from "../lib/marcas";
 import { buscarMarcasOff } from "../lib/openfoodfacts";
 import ProductoFoto from "./ProductoFoto";
 import SearchableCombobox from "./SearchableCombobox";
@@ -121,6 +122,21 @@ export default function SelectorMarca({ producto, valorInicial, onElegir, onCerr
           openOnFocus={false}
           maxLength={40}
         />
+        {texto.trim() ? (
+          <p className="small">Marca elegida: <b>{texto.trim()}</b> ({nivelDeMarca(factorMarca(texto.trim()))}).</p>
+        ) : null}
+        {alternativas.length ? (
+          <div className="alt-marcas">
+            <p className="small"><b>💡 Más baratas del mismo producto</b> (ahorro estimado, confírmalo en el anaquel):</p>
+            <div className="row">
+              {alternativas.map((alt) => (
+                <button key={alt.marca} className="btn sec" type="button" onClick={() => setTexto(alt.marca)}>
+                  {alt.marca} · −{alt.ahorroPct} %
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className="brand-status" aria-live="polite" aria-busy={cargando}>
           {cargando ? <p className="small" role="status">Buscando marcas en Open Food Facts…</p> : null}
           {!cargando && errorMarcas ? <p className="small" role="status">{errorMarcas}</p> : null}

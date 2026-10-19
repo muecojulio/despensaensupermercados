@@ -57,7 +57,8 @@ export default function Privacidad() {
 
       <Card titulo="Qué se queda en tu aparato" id="local">
         <p>
-          Listas guardadas, marcas elegidas, tiendas activas, presupuesto, historial, ofertas
+          Listas guardadas, marcas elegidas, tiendas activas, presupuesto (el principal y el
+          tope de antojos), el modo de comparación, historial, ofertas
           que tú capturas, antojos y la alacena viven en <b>localStorage</b> e{" "}
           <b>IndexedDB</b> de este navegador. En IndexedDB también guardamos por un rato el
           nombre del producto que consultaste para sugerir marcas y el resultado de la búsqueda
@@ -87,6 +88,11 @@ export default function Privacidad() {
             reduce en tu celular y viaja a ese proveedor para transcribir los renglones. No la
             archivamos: devolvemos el texto y la tiramos. El proveedor la procesa bajo su
             propia política; si eso no te late, usa .txt o .csv y no se manda ninguna imagen.
+          </li>
+          <li>
+            <b>Las exportaciones (CSV o imagen):</b> el ranking y la lista optimizada se
+            generan en tu propio aparato. El archivo solo sale de ahí si tú lo descargas o
+            lo compartes con otra app; Despensa MX no lo sube a ningún servidor.
           </li>
           <li>
             <b>El nombre de un producto</b> (nada más: no tu lista completa, ni tu ubicación)
