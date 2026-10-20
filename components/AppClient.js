@@ -21,6 +21,7 @@ import SearchableCombobox from "./SearchableCombobox";
 import TabBar, { APP_TABS } from "./TabBar";
 import SwipeTabPanel from "./SwipeTabPanel";
 import PanelQR from "./PanelQR";
+import PanelPrivacidad from "./PanelPrivacidad";
 import PanelExportar from "./PanelExportar";
 import CollapsiblePanel from "./CollapsiblePanel";
 import Switch from "./Switch";
@@ -541,15 +542,6 @@ export default function AppClient() {
                     <span className="acceso__nota">{PRODUCTOS.length} productos con marca</span>
                   </span>
                 </button>
-                <a className="acceso" href="/instalar">
-                  <span className="acceso__cuerpo">
-                    <span className="acceso__icono" style={{ background: "linear-gradient(140deg, #3ec1e0, #157b93)" }}>
-                      <Icono nombre="instalar" />
-                    </span>
-                    <span className="acceso__texto">Instalar la app</span>
-                    <span className="acceso__nota">Se abre sin navegador</span>
-                  </span>
-                </a>
               </div>
               <div className="row">
                 <a className="btn sec" href="/ejemplo-despensa.txt" download><Icono nombre="archivo" />Ejemplo .txt</a>
@@ -944,7 +936,6 @@ export default function AppClient() {
                   }}><Icono nombre="check" />Guardar lista</ActionButton>
                   <button className="btn sec" type="button" aria-expanded={verCatalogo} aria-controls="panel-mas-catalogo" onClick={() => setVerCatalogo((open) => !open)}><Icono nombre="catalogo" />{verCatalogo ? "Ocultar catálogo" : "Catálogo"}</button>
                   <button className="btn sec" type="button" aria-expanded={verTiendas} aria-controls="panel-mas-tiendas" onClick={() => setVerTiendas((open) => !open)}><Icono nombre="bolsa" />{verTiendas ? "Ocultar tiendas" : "Mis tiendas"}</button>
-                  <button className="btn sec" type="button" aria-controls="panel-qr" onClick={() => cambiarPestana("qr")}><Icono nombre="qr" />Código QR</button>
                 </div>
               </section>
               <CollapsiblePanel id="panel-mas-catalogo" open={verCatalogo}>
@@ -965,7 +956,6 @@ export default function AppClient() {
                   <p className="small">Toca una tienda para incluirla o quitarla de la comparación.</p>
                 </section>
               </CollapsiblePanel>
-              <section className="card"><h2>Instalar y privacidad</h2><div className="row"><a className="btn sec" href="/instalar"><Icono nombre="instalar" />Instalar la app</a><a className="btn sec" href="/privacidad"><Icono nombre="escudo" />Política de privacidad</a></div></section>
               <section className="card">
                 <h2>Listas guardadas</h2>
                 {guardadas.length ? guardadas.map((lista) => (
@@ -988,7 +978,7 @@ export default function AppClient() {
           active={pestana === "qr"}
           exiting={panelAnterior === "qr" && pestana !== "qr"}
           direction={direccionPanel}
-          onSwipe={(direction) => cambiarPestana(direction === "next" ? "qr" : "mas")}
+          onSwipe={(direction) => cambiarPestana(direction === "next" ? "privacidad" : "mas")}
         >
           {mostrarPanel("qr") ? (
             <PanelQR
@@ -1001,6 +991,17 @@ export default function AppClient() {
               onAviso={notificar}
             />
           ) : null}
+        </SwipeTabPanel>
+
+        <SwipeTabPanel
+          id="privacidad"
+          labelledBy="tab-privacidad"
+          active={pestana === "privacidad"}
+          exiting={panelAnterior === "privacidad" && pestana !== "privacidad"}
+          direction={direccionPanel}
+          onSwipe={(direction) => cambiarPestana(direction === "next" ? "privacidad" : "qr")}
+        >
+          {mostrarPanel("privacidad") ? <PanelPrivacidad /> : null}
         </SwipeTabPanel>
       </div>
 

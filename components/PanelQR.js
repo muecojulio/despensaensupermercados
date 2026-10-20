@@ -5,8 +5,9 @@ import Icono from "./Iconos";
 import InstruccionesInstalacion from "./InstruccionesInstalacion";
 
 /**
- * Pestaña QR: el código lleva a la página de instalación, así que sirve igual
- * para el celular, el iPad o la computadora de quien lo escanee.
+ * Pestaña QR: es el único lugar dentro de la app donde vive el código.
+ * El QR lleva a /instalar, una página que detecta el dispositivo de quien lo
+ * escanea y le muestra los pasos que le tocan (Android, iPhone, iPad o computadora).
  */
 export default function PanelQR({
   url,
@@ -22,11 +23,11 @@ export default function PanelQR({
   return (
     <>
       <section className="card qr-box" aria-labelledby="qr-titulo">
-        <h2 id="qr-titulo">QR para instalar la app</h2>
+        <h2 id="qr-titulo">QR para descargar e instalar</h2>
         <p className="small">
-          Al escanearlo se abre la página de instalación: ahí salen los pasos para ese
-          dispositivo, sea celular Android, iPhone, iPad o computadora. Descárgalo para
-          imprimirlo o mandarlo por WhatsApp.
+          Escanéalo con la cámara del celular, del iPad o de la computadora: abre la página
+          de instalación con los pasos para ese dispositivo. Se dibuja en tu propio aparato,
+          sin mandar nada a ningún servidor.
         </p>
         <CodigoQR
           valor={enlaceInstalar}
@@ -34,6 +35,9 @@ export default function PanelQR({
           descripcion="Código QR para instalar Despensa MX"
           onAviso={onAviso}
         />
+        <p className="small">
+          Android con Chrome, iPhone y iPad con Safari, computadora con Chrome, Edge o Safari.
+        </p>
         <div className="row row-center">
           <a className="btn sec" href="/instalar"><Icono nombre="instalar" />Abrir página de instalación</a>
         </div>
@@ -48,14 +52,6 @@ export default function PanelQR({
         titulo="Instalarla aquí mismo"
         descripcion="Si estás viendo esto en el dispositivo donde la quieres, estos son los pasos:"
       />
-
-      <section className="card">
-        <h2>Datos del código</h2>
-        <p className="small">
-          El QR apunta a {enlaceInstalar || "la página de instalación"} y se dibuja en tu
-          propio dispositivo, sin mandar nada a ningún servidor.
-        </p>
-      </section>
     </>
   );
 }
