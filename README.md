@@ -10,16 +10,17 @@ Esta app **no** lee precios en vivo de Walmart, Soriana o Chedraui. Usa un catá
 
 - Subir .txt o .csv (en Excel: Archivo → Guardar como → CSV); foto de la lista (opcional, con key de Gemini/Groq)
 - Producto + marca (catálogo local y Open Food Facts)
-- Una sola barra de pestañas (abajo): Inicio, Subir, Resultado, Lista, Cerca, Más, QR
-  (las opciones de arranque —archivo, foto, catálogo, ejemplo— viven en la
-  pestaña Inicio, ya no hay botón de inicio en el encabezado)
+- Una sola barra de pestañas (abajo): Inicio, Subir, Resultado, Lista, Cerca, Más,
+  QR y Privacidad (las opciones de arranque —archivo, foto, catálogo, ejemplo—
+  viven en la pestaña Inicio, ya no hay botón de inicio en el encabezado)
 - Se instala como app en celular, iPad y computadora (sin tiendas de apps)
 - Catálogo en Lista y en Más
-- Pestaña QR pensada para **instalar** la app: el código apunta a /instalar, se
-  descarga en PNG, se copia o se comparte, y da los pasos según el dispositivo
+- **Pestaña QR**: único lugar de la app con el código para descargar e instalar en
+  cualquier dispositivo. Apunta a /instalar, se descarga en PNG, se copia o se
+  comparte, y da los pasos según el equipo
   (iPad y iPhone con Safari, Android con Chrome, computadora con Chrome/Edge/Safari)
-- Página /instalar: detecta el dispositivo, ofrece el botón de instalación cuando el
-  navegador lo permite y muestra el QR para pasarla a otro equipo
+- Página /instalar (destino del QR): detecta el dispositivo, ofrece el botón de
+  instalación cuando el navegador lo permite y muestra los pasos de cada sistema
 - Iconos PNG (180/192/512 y maskable) para que se pueda instalar en iPad y Android
 - Ranking, ahorro, ticket, antojos aparte del presupuesto
 - **Marcas alternativas más baratas del mismo producto**: precio relativo por marca
@@ -40,7 +41,9 @@ Esta app **no** lee precios en vivo de Walmart, Soriana o Chedraui. Usa un catá
   en IndexedDB con expiración (12 h y 15 min, respectivamente)
 - Fondo animado, tema claro/oscuro, mosaico de accesos y resultado con contador,
   podio y confeti (respeta `prefers-reduced-motion`)
-- Política de privacidad en /privacidad (actualizada el 9 de octubre de 2026)
+- **Pestaña Privacidad** con la política completa (actualizada el 9 de octubre de 2026),
+  sin repetirla en otras pestañas; /privacidad muestra el mismo texto para enlaces
+  directos (`components/PoliticaPrivacidad.js` es la única fuente)
 - Controles de seguridad, canal privado de reporte y revisiones continuas en
   [SECURITY.md](./SECURITY.md) (`npm audit` + pruebas de seguridad)
 - Archivos de ejemplo en /ejemplo-despensa.txt y /ejemplo-despensa.csv

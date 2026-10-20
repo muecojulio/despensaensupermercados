@@ -1147,6 +1147,8 @@ input[type="checkbox"] { width: 22px; height: 22px; flex: 0 0 auto; accent-color
   scroll-snap-align: center;
   transition: color var(--motion-standard) ease, transform var(--motion-fast) var(--ease-pop);
 }
+/* «Privacidad» es la etiqueta más larga: le damos un poco más de ancho. */
+#tab-privacidad { flex-basis: 84px; min-width: 84px; }
 .tabbar .tab.on { color: #fff; }
 .tab-icono { width: 22px; height: 22px; flex: 0 0 auto; }
 .tabbar .tab.on .tab-icono { animation: pop-icono 420ms var(--ease-pop) both; }

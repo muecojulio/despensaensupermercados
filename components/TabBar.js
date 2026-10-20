@@ -13,6 +13,7 @@ export const APP_TABS = [
   { id: "cerca", label: "Cerca", icono: "cerca" },
   { id: "mas", label: "Más", icono: "mas" },
   { id: "qr", label: "QR", icono: "qr" },
+  { id: "privacidad", label: "Privacidad", icono: "escudo" },
 ];
 
 export default function TabBar({ selected, onSelect }) {
