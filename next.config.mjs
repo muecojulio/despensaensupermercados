@@ -2,10 +2,10 @@
  * Cabeceras de seguridad base (para cualquier hosting que no sea Vercel).
  *
  * En Vercel manda vercel.json, que además cubre los estáticos (/_next, iconos).
- * El resto —CSP con nonce, HSTS y COOP— lo pone middleware.js, porque necesita
+ * El resto —CSP con nonce, HSTS y COOP— lo pone proxy.js, porque necesita
  * calcular un nonce por petición.
  *
- * X-Frame-Options: DENY vive en vercel.json y en middleware (solo producción),
+ * X-Frame-Options: DENY vive en vercel.json y en proxy.js (solo producción),
  * para que las vistas previas locales se puedan mostrar dentro de un iframe.
  *
  * @type {import('next').NextConfig}

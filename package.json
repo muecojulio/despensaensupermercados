@@ -1,17 +1,20 @@
 {
   "name": "despensa-mx",
   "private": true,
-  "engines": { "node": "24.x" },
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "test:security": "node --experimental-default-type=module --test tests/seguridad.test.js",
-    "test": "node --experimental-default-type=module --test tests/seguridad.test.js tests/nuevas-funciones.test.js"
+    "test": "node --experimental-default-type=module --test tests/seguridad.test.js tests/nuevas-funciones.test.js tests/apis-publicas.test.js",
+    "test:apis": "node --experimental-default-type=module --test tests/apis-publicas.test.js"
   },
   "dependencies": {
     "next": "16.4.2",
-    "react": "19.2.0",
+    "react": "19.3.0",
     "react-dom": "19.3.0"
   },
   "overrides": {

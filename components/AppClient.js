@@ -89,6 +89,11 @@ export default function AppClient() {
   const [estadoInstalar, setEstadoInstalar] = useActionStatus();
   const [estadoOferta, setEstadoOferta] = useActionStatus();
   const [estadoLista, setEstadoLista] = useActionStatus();
+  const [estadoCodigo, setEstadoCodigo] = useActionStatus();
+  const [consejoApi, setConsejoApi] = useState(null);
+  const [codigoBarras, setCodigoBarras] = useState("");
+  const [productoCodigo, setProductoCodigo] = useState(null);
+  const [codigoMsg, setCodigoMsg] = useState("");
 
   const [texto, setTexto] = useState("");
   const [nombreLista, setNombreLista] = useState("Despensa semanal");
@@ -915,6 +920,31 @@ export default function AppClient() {
                   }}><Icono nombre="check" />Guardar oferta</ActionButton>
                 </div>
                 {faltanBasicos.length ? <p className="small">¿Se te ofrece? {faltanBasicos.join(", ")}.</p> : null}
+              </section>
+              <section className="card">
+                <h2>Producto por código de barras</h2>
+                <p className="small">Escribe el código del empaque: lo buscamos en Open Food Facts (sin cuenta) y, si coincide con el catálogo, lo agregamos con su marca.</p>
+                <div className="form-grid offer-fields">
+                  <label className="field-label" htmlFor="codigo-barras">Código de barras
+                    <input id="codigo-barras" type="text" inputMode="numeric" autoComplete="off" placeholder="Ej. 7501000000000" value={codigoBarras} onChange={(event) => setCodigoBarras(event.target.value)} />
+                  </label>
+                  <ActionButton className="btn offer-save" status={estadoCodigo} loadingLabel="Buscando…" successLabel="Encontrado" errorLabel="Reintentar" onClick={buscarCodigoBarras}><Icono nombre="catalogo" />Buscar producto</ActionButton>
+                </div>
+                {codigoMsg ? <p className="small" role="status" aria-live="polite">{codigoMsg}</p> : null}
+                {productoCodigo ? (
+                  <div className="tienda">
+                    <div>
+                      <b>{productoCodigo.nombre}</b>
+                      <div className="small">
+                        {productoCodigo.marcas?.length ? `Marca: ${productoCodigo.marcas.join(", ")} · ` : ""}
+                        {productoCodigo.cantidadTexto ? `${productoCodigo.cantidadTexto} · ` : ""}
+                        {productoCodigo.nutriscore ? `Nutri-Score ${productoCodigo.nutriscore} · ` : ""}
+                        Código {productoCodigo.codigo}
+                      </div>
+                    </div>
+                    <button className="btn" type="button" onClick={agregarDesdeCodigo}><Icono nombre="check" />Agregar a la lista</button>
+                  </div>
+                ) : null}
               </section>
               <section className="card">
                 <h2>Ajustar lista</h2>

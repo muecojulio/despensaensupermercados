@@ -45,10 +45,11 @@ export default function PoliticaPrivacidad() {
           tope de antojos), el modo de comparación, historial, ofertas
           que tú capturas, antojos y la alacena viven en <b>localStorage</b> e{" "}
           <b>IndexedDB</b> de este navegador. En IndexedDB también guardamos por un rato el
-          nombre del producto que consultaste para sugerir marcas y el resultado de la búsqueda
-          de súpers (con la ubicación aproximada, redondeada a unos 10 metros). La caché de
-          marcas vence a las 12 horas; la del mapa, a los 15 minutos. Las entradas caducadas
-          se borran al volver a consultar o guardar resultados.
+          nombre del producto que consultaste para sugerir marcas, el código de barras que
+          consultaste, la dirección escrita que buscaste, el consejo del día y el resultado
+          de la búsqueda de súpers (con la ubicación aproximada, redondeada a unos 10
+          metros). Cada tipo tiene su propio vencimiento (ver «Cuánto tiempo se guarda») y
+          las entradas caducadas se borran al volver a consultar o guardar resultados.
         </p>
         <p>
           El service worker guarda una copia de las páginas y los archivos de la app para que
@@ -81,6 +82,23 @@ export default function PoliticaPrivacidad() {
           <li>
             <b>El nombre de un producto</b> (nada más: no tu lista completa, ni tu ubicación)
             a <b>Open Food Facts</b> para sugerirte marcas. Es una API pública sin registro.
+          </li>
+          <li>
+            <b>El código de barras que escribes</b>, solo si usas «Producto por código de
+            barras», a <b>Open Food Facts</b> para identificar el producto. No se manda tu
+            lista ni tu ubicación con ese código.
+          </li>
+          <li>
+            <b>La dirección que escribes</b> en «Buscar súpers desde esta dirección», solo si
+            tocas ese botón, a <b>Nominatim / OpenStreetMap</b> para convertirla en
+            coordenadas. Es la alternativa a compartir el GPS: si no la usas, no se manda.
+          </li>
+          <li>
+            <b>Una coordenada aproximada</b> (tu ubicación si ya la autorizaste, o el centro
+            de la CDMX si no) a <b>Open-Meteo</b> para el pronóstico y a <b>Nager.Date</b>{" "}
+            solo se le pide la lista de feriados de México del año, sin coordenada. Sirven
+            para el consejo del día (lluvia, calor o feriado). Son APIs públicas sin
+            registro y sin cuenta.
           </li>
           <li>
             <b>Mapas y rutas:</b> si abres el mapa de la app, los mosaicos cartográficos se

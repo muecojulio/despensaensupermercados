@@ -1,7 +1,7 @@
 // La ruta lee ?q= en cada petición, así que es dinámica por sí sola.
 // El caché de datos (revalidate) evita golpear Open Food Facts en cada visita.
 
-import { cabecerasLimite, ipDelCliente, limiteDeUso } from "../../../lib/seguridad";
+import { basesExternas, cabecerasLimite, ipDelCliente, limiteDeUso } from "../../../lib/seguridad";
 
 const MAX_POR_MINUTO = 60;
 const TIMEOUT_MS = 8000;
@@ -31,44 +31,53 @@ export async function GET(request) {
     return Response.json({ marcas: [] });
   }
 
-  const url =
-    "https://world.openfoodfacts.org/cgi/search.pl?search_terms=" +
+  // Sin key: base pública de OFF. Si no responde, se intenta la base de
+  // OPENFOODFACTS_BASE_URL (si el operador la definió) y el subdominio MX.
+  // Si todo falla, el cliente se queda con el catálogo local de marcas.
+  const bases = basesExternas(
+    process.env.OPENFOODFACTS_BASE_URL,
+    "https://world.openfoodfacts.org",
+    "https://mx.openfoodfacts.org",
+  );
+  const ruta =
+    "/cgi/search.pl?search_terms=" +
     encodeURIComponent(q) +
     "&search_simple=1&action=process&json=1&page_size=20&cc=mx&lc=es";
 
-  try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "DespensaMX/1.0 (comparador de despensa; +https://openfoodfacts.org)",
-        Accept: "application/json",
-      },
-      next: { revalidate: 43200 },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    if (!res.ok) {
-      return Response.json({ marcas: [], fuente: "openfoodfacts", error: "upstream" });
-    }
-    const data = await res.json();
-    const seen = new Set();
-    const marcas = [];
-    for (const p of data.products || []) {
-      const brand = limpia((p.brands || "").split(",")[0]);
-      if (!brand) continue;
-      const key = brand.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      marcas.push(brand);
-      if (marcas.length >= 12) break;
-    }
-    return Response.json(
-      { marcas, fuente: "openfoodfacts" },
-      {
+  for (const base of bases) {
+    try {
+      const res = await fetch(base + ruta, {
         headers: {
-          "Cache-Control": "public, s-maxage=43200, stale-while-revalidate=86400",
+          "User-Agent": "DespensaMX/1.0 (comparador de despensa; +https://openfoodfacts.org)",
+          Accept: "application/json",
         },
-      },
-    );
-  } catch {
-    return Response.json({ marcas: [] });
+        next: { revalidate: 43200 },
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const seen = new Set();
+      const marcas = [];
+      for (const p of data.products || []) {
+        const brand = limpia((p.brands || "").split(",")[0]);
+        if (!brand) continue;
+        const key = brand.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        marcas.push(brand);
+        if (marcas.length >= 12) break;
+      }
+      return Response.json(
+        { marcas, fuente: "openfoodfacts" },
+        {
+          headers: {
+            "Cache-Control": "public, s-maxage=43200, stale-while-revalidate=86400",
+          },
+        },
+      );
+    } catch {
+      // Siguiente base; al final se responde vacío y manda el catálogo local.
+    }
   }
+  return Response.json({ marcas: [], fuente: "openfoodfacts", error: "upstream" });
 }

@@ -39,27 +39,28 @@ function politicaContenido(nonce) {
     "worker-src 'self'",
   ];
 
+  // Solo Overpass va directo del navegador al tercero (fue el diseño original);
+  // el resto de APIs públicas nuevas pasan por rutas propias /api/* ('self'),
+  // así no hay que abrir más hosts en la CSP ni exponer límites del tercero.
+  const CONNECT_OVERPASS =
+    "https://overpass-api.de https://overpass.kumi.systems https://overpass.private.coffee";
   if (ES_PRODUCCION) {
     directivas.push(`script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`);
-    directivas.push(
-      "connect-src 'self' https://overpass-api.de https://overpass.kumi.systems",
-    );
+    directivas.push(`connect-src 'self' ${CONNECT_OVERPASS}`);
     directivas.push("frame-ancestors 'none'");
     directivas.push("upgrade-insecure-requests");
   } else {
     // En desarrollo Next usa eval para el HMR y abre un websocket al compiler.
     // Tampoco se bloquea el embed para poder ver la app en vistas previas.
     directivas.push(`script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval'`);
-    directivas.push(
-      "connect-src 'self' ws: wss: https://overpass-api.de https://overpass.kumi.systems",
-    );
+    directivas.push(`connect-src 'self' ws: wss: ${CONNECT_OVERPASS}`);
     directivas.push("frame-ancestors *");
   }
 
   return directivas.join("; ");
 }
 
-export function middleware(request) {
+export function proxy(request) {
   const nonce = nonceSeguro();
   const csp = politicaContenido(nonce);
   const headers = new Headers(request.headers);

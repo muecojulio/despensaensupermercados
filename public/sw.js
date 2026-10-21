@@ -1,4 +1,4 @@
-const CACHE = "despensa-mx-v5";
+const CACHE = "despensa-mx-v6";
 const PRECACHE = ["/", "/instalar", "/manifest.json", "/privacidad", "/icon-192.png"];
 
 self.addEventListener("install", (event) => {
