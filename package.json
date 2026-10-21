@@ -10,7 +10,7 @@
     "test": "node --experimental-default-type=module --test tests/seguridad.test.js tests/nuevas-funciones.test.js"
   },
   "dependencies": {
-    "next": "15.5.27",
+    "next": "16.4.2",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },
