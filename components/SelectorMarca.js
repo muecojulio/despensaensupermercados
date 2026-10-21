@@ -87,6 +87,11 @@ export default function SelectorMarca({ producto, valorInicial, onElegir, onCerr
 
   const marcas = [...new Set([...locales, ...extra])];
   const opciones = marcas.map((marca) => ({ value: marca, label: marca }));
+  // Antes esto referenciaba una variable inexistente y el selector reventaba
+  // (ReferenceError) en cuanto se abría: se calcula desde la marca escrita.
+  const alternativas = producto
+    ? alternativasMasBaratas(producto.id, { marcaActual: texto.trim() })
+    : [];
 
   return (
     <div

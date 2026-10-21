@@ -1,7 +1,7 @@
 # Política de seguridad
 
 Despensa MX es una app web sin cuentas, sin base de datos de usuarios y sin
-servidor propio: las listas viven en el navegador. Aun así hay dos rutas de API
+servidor propio: las listas viven en el navegador. Aun así hay cinco rutas de API
 y un service worker, así que esto es lo que se hace y lo que toca revisar.
 
 ## Versiones soportadas
@@ -24,7 +24,7 @@ reporte privado para no exponer a los usuarios mientras se corrige.
 
 ## Medidas implementadas
 
-### Cabeceras (middleware.js, next.config.mjs, vercel.json)
+### Cabeceras (proxy.js, next.config.mjs, vercel.json)
 
 - **Content-Security-Policy** con nonce por petición y `strict-dynamic`. Ni
   `unsafe-inline` para scripts ni hosts de CDN dados de alta. React escribe
@@ -60,6 +60,18 @@ reporte privado para no exponer a los usuarios mientras se corrige.
   control, máximo 200 renglones) antes de llegar al cliente.
 - Las variables `GEMINI_MODEL` / `GROQ_MODEL` se validan contra
   `^[A-Za-z0-9._\-/]{1,64}$` antes de usarse en la URL del proveedor.
+- Rutas públicas sin key (`/api/marcas`, `/api/producto-codigo`,
+  `/api/geocodificar`, `/api/plan-compra`): mismo límite por IP (60/min;
+  geocodificar 30/min por la política de Nominatim), timeout de 6–8 s por
+  intento y respuesta reducida a campos seguros — nunca se reenvía el JSON
+  crudo del tercero. El código de barras se valida (formato + dígito
+  verificador GTIN) y las coordenadas con `coordenadaSegura()` antes de
+  llamar fuera; una coordenada ausente ya no se acepta como `0,0`.
+- Las bases de respaldo por entorno (`OPENFOODFACTS_BASE_URL`,
+  `NOMINATIM_BASE_URL`, `OPEN_METEO_BASE_URL`, `FERIADOS_BASE_URL`) pasan por
+  `basesExternas()`: solo https, sin credenciales ni query, con las bases
+  públicas como respaldo si la definida no responde. Sin esto, una variable
+  maliciosa podría convertir la ruta en proxy abierto (SSRF).
 
 ### Revisión continua
 

@@ -74,12 +74,20 @@ sirve HTML desde red en línea y renueva la CSP/nonce al abrir una copia offline
 
 ## Índices
 
-No hay Postgres ni SQLite en el servidor: las listas viven en el celular. Sí hay:
+No hay Postgres ni SQLite en el servidor: las listas viven en el celular, así
+que un índice SQL de servidor no aporta (se evaluó y se descartó: no hay
+consultas SQL que acelerar). Sí hay, donde sí conviene:
 
-- Índice invertido en memoria sobre el catálogo (lib/indices.js)
-- IndexedDB despensa-mx-cache con almacén entradas e índices tipo y expira
-
-Un índice SQL de servidor no aporta aquí.
+- Índice invertido en memoria sobre el catálogo (lib/indices.js): token →
+  productos, para emparejar cada renglón sin recorrer todo el catálogo.
+- IndexedDB despensa-mx-cache (lib/cache.js) con almacén `entradas` e índices
+  `tipo` y `expira`: `expira` purga caducados por rango al abrir/acceder y
+  `tipo` permite borrar por clase (marcas 12 h, súpers 15 min, clima 30 min,
+  direcciones 24 h, códigos 12 h) desde la pestaña Privacidad, sin tocar las
+  listas de localStorage. Si IndexedDB no existe, cae a memoria (máx. 500).
+- Caché HTTP en las rutas `/api/*` (`s-maxage` + `stale-while-revalidate`) y
+  service worker v6 solo para archivos propios de la app (nunca respuestas
+  de API).
 
 ## Keys (opcionales)
 
@@ -106,7 +114,7 @@ Antes de subir, comprueba en local:
 
 ```bash
 npm ci
-npm run test:security
+npm test
 npm audit
 npm run build
 ```
